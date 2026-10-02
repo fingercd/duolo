@@ -41,6 +41,8 @@ class BridgeTests(unittest.TestCase):
                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     def cli(self, *args):
+        if args and args[0] == "status":
+            args = ("status", "--fresh", *args[1:])
         env = dict(os.environ)
         env["PYTHONPATH"] = str(SRC)
         proc = subprocess.run([sys.executable, "-m", "worktree_bridge", "--config", str(self.config), *args],

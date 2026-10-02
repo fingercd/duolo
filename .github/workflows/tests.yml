@@ -1,0 +1,144 @@
+name: Tests
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.10', '3.12']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install project and official MCP extra
+        run: python -m pip install -e ".[mcp]"
+      - name: Run full offline suite
+        run: python -m unittest discover -s tests -v
+
+  live-ssh:
+    name: Linux loopback SSH protocol
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install project and official MCP extra
+        run: python -m pip install -e ".[mcp]"
+      - name: Start owned loopback SSH fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          # This is a disposable hosted runner. Prevent package installation
+          # from starting the system SSH listener on a public interface.
+          sudo systemctl mask ssh.service ssh.socket
+          sudo systemctl stop ssh.service ssh.socket || true
+          if [[ ! -x /usr/sbin/sshd ]]; then
+            sudo apt-get update
+            sudo apt-get install -y openssh-server
+          fi
+          sudo mkdir -p /run/sshd
+          fixture="${RUNNER_TEMP}/wtb-sshd"
+          mkdir -m 700 "$fixture"
+          mkdir -m 700 "${RUNNER_TEMP}/wtb-ssh-fixtures"
+          ssh-keygen -q -t ed25519 -N '' -f "$fixture/client_key"
+          ssh-keygen -q -t ed25519 -N '' -f "$fixture/host_key"
+          cp "$fixture/client_key.pub" "$fixture/authorized_keys"
+          chmod 600 "$fixture/authorized_keys"
+          read -r key_type key_data _ < "$fixture/host_key.pub"
+          printf '[127.0.0.1]:22345 %s %s\n' "$key_type" "$key_data" > "$fixture/known_hosts"
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          cat > "$HOME/.ssh/config" <<EOF
+          Host wtb-ci-local
+            HostName 127.0.0.1
+            Port 22345
+            User $(id -un)
+            IdentityFile $fixture/client_key
+            IdentitiesOnly yes
+            IdentityAgent none
+            UserKnownHostsFile $fixture/known_hosts
+            GlobalKnownHostsFile /dev/null
+            StrictHostKeyChecking yes
+            BatchMode yes
+            ConnectTimeout 5
+          EOF
+          chmod 600 "$HOME/.ssh/config"
+          cat > "$fixture/sshd_config" <<EOF
+          Port 22345
+          AddressFamily inet
+          ListenAddress 127.0.0.1
+          HostKey $fixture/host_key
+          PidFile $fixture/sshd.pid
+          AuthorizedKeysFile $fixture/authorized_keys
+          AllowUsers $(id -un)
+          PubkeyAuthentication yes
+          AuthenticationMethods publickey
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+          PermitEmptyPasswords no
+          PermitRootLogin no
+          UsePAM yes
+          StrictModes yes
+          AllowTcpForwarding no
+          AllowAgentForwarding no
+          X11Forwarding no
+          PermitTunnel no
+          GatewayPorts no
+          LogLevel VERBOSE
+          EOF
+          sudo /usr/sbin/sshd -t -f "$fixture/sshd_config"
+          sudo /usr/sbin/sshd -D -e -f "$fixture/sshd_config" > "$fixture/sshd.log" 2>&1 &
+          ready=false
+          for attempt in $(seq 1 50); do
+            if ssh -o BatchMode=yes -o StrictHostKeyChecking=yes wtb-ci-local true; then
+              ready=true
+              break
+            fi
+            sleep 0.1
+          done
+          if [[ "$ready" != true ]]; then
+            cat "$fixture/sshd.log"
+            exit 1
+          fi
+          # Trust was derived from this job's generated host public key. No
+          # ssh-keyscan, StrictHostKeyChecking=no, agent or personal key is used.
+          printf 'WTB_TEST_SSH_HOST=wtb-ci-local\nWTB_TEST_SSH_PORT=22345\nWTB_TEST_SSH_ROOT=%s/wtb-ssh-fixtures\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - name: Run opt-in real SSH acceptance
+        run: python -m unittest discover -s tests -p test_live_ssh.py -v
+      - name: Stop owned SSH fixture and report diagnostics
+        if: always()
+        shell: bash
+        run: |
+          fixture="${RUNNER_TEMP}/wtb-sshd"
+          if [[ -f "$fixture/sshd.log" ]]; then
+            tail -n 100 "$fixture/sshd.log"
+          fi
+          if [[ -f "$fixture/sshd.pid" ]]; then
+            pid="$(cat "$fixture/sshd.pid")"
+            # Stop only the process that still has this job's exact config.
+            if sudo ps -p "$pid" -o args= | grep -F -- "-f $fixture/sshd_config" >/dev/null; then
+              sudo kill "$pid"
+            fi
+          fi

@@ -41,7 +41,8 @@ def git_environment():
 def git_process(root, *args):
     return subprocess.run(["git", "-C", str(root), *args], stdout=subprocess.PIPE,
                           stderr=subprocess.PIPE, timeout=30, check=False,
-                          env=git_environment())
+                          env=git_environment(),
+                          creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
 
 
 def git(root, *args):

@@ -1,48 +1,79 @@
 # 配置与命令
 
-本地 CLI 需要 Python 3.10+，远端探针需要 Python 3.9+；两端需要 Git，本机使用已有 OpenSSH 认证与 known_hosts。状态目录放在仓库外，保存内容指纹、执行日志和备份，不能发布。
+控制端 Python 3.10+，远端 Python 3.9+；两端需要 Git，本机使用已有 OpenSSH 认证与主机信任。`wtb` 与 `worktree-bridge` 是同一 CLI；未安装时可在既有源码/环境运行 `python -m worktree_bridge` 或 `python <source>/scripts/bridge.py`，不要重写临时同步脚本绕过检查。
 
-```json
-{
-  "local_root": "D:/work/my-project",
-  "remote": {"kind": "ssh", "host": "gpu-dev", "root": "/home/researcher/projects/my-project"},
-  "state_dir": "D:/worktree-bridge-state/my-project"
-}
-```
-
-只接受明确的一对开发目录，不从文件夹同名自动决定配对。私有配置放在项目外；SSH host 可以用现有配置别名，省略 port 时保留其端口，显式 port 覆盖它。工具会把解析后的 hostname/user/port 纳入基线身份。不要在配置里放密码、token 或私钥内容。
+## 注册与入口
 
 ```console
-python -m worktree_bridge --config project.local.json status
-python -m worktree_bridge --config project.local.json baseline
-python -m worktree_bridge --config project.local.json plan --out D:/worktree-bridge-state/my-project/plan.json
-python -m worktree_bridge --config project.local.json apply --plan D:/worktree-bridge-state/my-project/plan.json
+cd D:/work/my-project
+wtb init --remote gpu-dev --path /home/researcher/projects/my-project
+wtb start
+wtb status --short
+wtb watch --interval 0.5
 ```
 
-`status` 和不带输出路径的 `plan` 读取项目；`baseline` 写私有状态；`plan --out` 写本地计划；`apply` 可写两端项目。命令输出 JSON；检查退出码与返回问题，不能只看有没有输出。
+`init` 只写私有注册，不执行 `git init`、提交、文件同步或覆盖。未启动时默认状态失败并提示启动，不静默改成慢扫。`--port` 可覆盖 SSH 别名端口；省略时保留配置。`--name` 设置名称，`projects` 读取本机注册列表，`init --from-config <private.json>` 迁移已有配对。
 
-计划文件必须放在两个工作树之外的本机私有目录，例如上述 state_dir。不要在被同步仓库根生成 plan.json，也不要覆盖已有配置或 baseline 文件。
+配置位于当前工作树 Git 私有目录的 `worktree-bridge/config.json`，linked worktree 各自独立；后续在仓库子目录可自动发现。高级模式保留 `wtb --config <private.json> ...`。状态、备份与日志在工作树外，不发布。真实 SSH 目标、密码、token 与私钥不写入公共文档。
 
-基线是“上次双方都一致的内容”，不是自动选出的服务器权威版本。三方判断：本地等于基线、远端变化时拉回；远端等于基线、本地变化时推送；两端同改但结果不同则冲突；两端相同则无需复制。原型对删除一律停止。
+两端要有初始 commit、同一具名分支；第一次基线只接受 HEAD 与所选文件相同。已有分叉先盘点、保全和处理，不能由 mtime、主机角色或 origin 自动判断权威端。CRLF/LF 按真实字节比较，先审阅 `.gitattributes`，不暗中全仓转换。
 
-原型按字节比较，CRLF/LF 差异也属于差异。先检查 `.gitattributes` 与 checkout 设置，未经审阅不要批量转换。机器特有文档或忽略文件不在公共同步范围内时应明确告知。
+## 状态与同步
 
-安装时使用现有源码目录的 `python -m pip install .` 或由用户环境设置 `PYTHONPATH=<source>/src`。不安装时可运行 `python <source>/scripts/bridge.py ...`，它调用同一核心。具体安装位置属于机器配置，不写进通用 Skill。
+```console
+wtb status
+wtb status --fresh
+wtb sync --wait --timeout 30
+wtb wait --timeout 30
+wtb pause
+wtb resume
+```
+
+`status` 默认缓存 JSON，`--short` 简短文本，`watch` 持续显示变化与事件。缓存响应不证明观察新鲜：核对 `observed_at`、连接、`checking`、`last_error`、HEAD/分支和冲突。`status --fresh` 是独立全量扫描，不启动服务。
+
+`sync` 请求受检查的写入，`queued: true` 只表示接受。`wait` 发起只读新观察，等待该观察完成且状态为 `synced`，不执行传输或 Git 跟进，不绕过 `pause` / `auto_sync=false`。从保存前留下的绿色缓存不能直接满足等待。
+
+```console
+wtb conflicts
+wtb resolve src/model.py --take remote --revision TOKEN
+wtb wait --timeout 30
+```
+
+冲突选择会覆盖另一端，必须审阅内容并引用刚返回的 revision。版本过期时重读状态，不能把旧选择当对后续变化的授权。删除默认关闭，配置允许时仍执行基线与内容核验。
 
 ## Git 协调
 
-当前 CLI 只检查 Git，不自动协调历史。两端同一工作文件可以有不同 HEAD、分支、暂存内容；这些状态不能靠文件复制同步。
+后台自动跟进任一端已有 commit，要求同分支、从记录基线真正前进且目标改动可保全。历史分叉、独立暂存工作、活跃 Git 操作或保护条件不满足时返回 `git_blocked`。不会每次保存自动 commit、复制 `.git`、自动 merge/rebase/stash/reset、强推或向项目 GitHub 推送。
 
-Git 操作前先暂停任何文件同步，记录两端 HEAD、分支和未提交修改，按项目规定保全各自修改。若用户已授权提交或更新 Git 历史，使用 Git 原生 fetch/push/merge 等机制处理；不擅自扩大为 commit、stash、reset 或 force push。首次历史分叉的合并选择需要用户当前目标或项目明确规则，不能按“远端通常更新”推断。
+新增历史在传输前审核，包括最终树已删除的中间文件；上限为 128 个提交、4096 个逐提交路径条目、8 MiB bundle，并审核排除路径、文件大小与模式。超限需要经审阅的 Git 原生流程，不放宽工具检查。
 
-Git HEAD/分支发生变化后，即使两端已经变到同一新提交，也不能沿用旧内容基线解释改动。两端重新达到预期相同提交和所选工作文件后，可显式 `baseline --refresh`，保留旧基线并记录新的共同状态。刷新只能在双方完全一致时进行，不能用来绕过冲突。当前原型不会自动完成 Git 协调步骤，不要把发现分叉写成“已修复分叉”。
+```console
+wtb checkpoint -m "experiment setup" --tag exp-001
+```
 
-0.2 起 SSH 基线还绑定实际解析的端点。升级旧版 SSH 配对时若旧基线因身份字段不足被拒绝，先核对真实端点，保留旧状态目录；两端当前内容和 Git 版本已核验一致后，使用新的专用 state_dir 建立基线。不要编辑旧 baseline JSON 冒充同一身份。
+显式 checkpoint 两端先一致后从本地创建所选工作的 commit/tag，并让远端跟进。它不调用 `git commit`、不运行 commit hooks；依赖 hooks 的检查先单独执行，或按项目流程手动提交。Skill 本身不授予提交、发布或训练权限。
+
+手动处理分叉时暂停自动同步并记录两端状态，按当前授权保全各自工作，再采用项目要求的原生 Git 操作。不能默默丢弃 staged/dirty 工作。双方新 Git 状态核对后才更新共同基线，不沿用旧 HEAD 的内容基线解释新改动。
+
+## 手动计划兼容
+
+```console
+wtb stop
+wtb baseline
+wtb plan --out D:/work/bridge-state/my-project/plan.json
+wtb apply --plan D:/work/bridge-state/my-project/plan.json
+```
+
+这些命令保留原显式工作流；运行中的服务阻止旧 `apply` / `baseline` 并行写状态。计划路径放在工作树之外，不能覆盖配置或基线。旧路径仍拒绝删除、冲突和过期计划；`baseline --refresh` 只能记录双方已一致的状态，不用于绕过分叉。
+
+## MCP
+
+可选 `mcp>=1.28,<2` 官方 SDK extra 提供固定项目 stdio 工具，与 CLI 共用服务。先在既有环境安装源码 extra，再在已注册仓库运行 `wtb mcp`；客户端不能设置工作目录时使用注册返回的 `config_path` 明确绑定。工具包含状态、同步、暂停/恢复、冲突列表/选择、等待、checkpoint，无任意 shell 或替换目录接口。
 
 ## 失败恢复
 
-一个文件的原子替换不等于整批事务。连接断开或某一步报错时，部分文件可能已经完成。读取状态目录中的执行记录和目标旧内容备份，重新扫描两端，确认实际完成项；不要盲目重放旧计划，不自动回滚仍在变化的文件，不自行编辑基线。
+连接中断或动作失败时可能部分完成。先读当前状态、最近动作和状态目录中的持久记录、目标旧内容备份，必要时独立全量核对；不盲目重放批次，不自动回滚仍在变化的文件，不手改基线。Git ref 已前进但 index 尚未发布的失败可能保留锁与阶段记录，需按真实状态审阅后恢复。
 
-## 交付给下一位 Agent
+## 交接
 
-记录具体配对、两端 HEAD/分支、扫描时间、计划/执行结果、仍未处理冲突、已重新读过的关键文档。记录运行实验的冻结 SHA、产物路径和摘要；不要把机器上的会话存储、凭据或全部日志塞进项目 AGENTS.md。
+记录明确配对、两端 HEAD/分支、观察时间、同步/动作结果、未处理冲突、实际重新读取的规则。实验另记冻结 SHA/tag、配置、seed、数据/权重与产物摘要；不把全量日志、机器会话存储或凭据塞入公共 `AGENTS.md`。

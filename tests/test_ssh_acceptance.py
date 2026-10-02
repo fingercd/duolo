@@ -60,7 +60,7 @@ class ConfigGuards(unittest.TestCase):
         self.assertFalse(Path(self.config["state_dir"]).exists())
 
     def test_arbitrary_project_root_is_rejected(self):
-        self.config["local_root"] = str(self.parent / "Microduck")
+        self.config["local_root"] = str(self.parent / "ordinary-project")
         with self.assertRaisesRegex(ValueError, "basename"):
             self.validate()
 

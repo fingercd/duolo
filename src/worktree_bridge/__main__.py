@@ -7,9 +7,11 @@ import json
 import os
 from pathlib import Path
 from pathlib import PurePosixPath
+import re
 import shlex
 import subprocess
 import sys
+import time
 import uuid
 import zlib
 
@@ -63,7 +65,8 @@ class Endpoint:
         # -G evaluates the existing SSH configuration without connecting. Binding
         # its endpoint fields also detects a later alias/port change in a plan.
         proc = subprocess.run([*args, "-G", host], stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE, timeout=15, check=False)
+                              stderr=subprocess.PIPE, timeout=15, check=False,
+                              creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
         if proc.returncode:
             raise RuntimeError("cannot evaluate SSH configuration: "
                                + proc.stderr.decode("utf-8", "replace").strip())
@@ -88,7 +91,8 @@ class Endpoint:
         cmd = [*self.ssh_args, remote_command]
         proc = subprocess.run(cmd, input=canonical(req).encode("utf-8"),
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              timeout=45, check=False)
+                              timeout=45, check=False,
+                              creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
         if proc.returncode:
             raise RuntimeError("SSH endpoint failed: " + proc.stderr.decode("utf-8", "replace").strip())
         try:
@@ -292,7 +296,7 @@ def execute(plan, state, endpoints):
         raise
 
 
-def run(args):
+def _run_once(args):
     local, remote, state = configuration(args.config)
     identity = endpoint_identity(local, remote)
     if args.command == "plan" and args.out:
@@ -376,21 +380,266 @@ def run(args):
     raise ValueError("unknown command")
 
 
+def _start_service(args):
+    from . import client
+    try:
+        current = client.get_status(args.config)
+        return {"ok": True, "already_running": True, "url": client.service_info(args.config)["url"],
+                "state": current["state"]}
+    except client.ServiceUnavailable:
+        pass
+    _, state, fingerprint = client.configuration_info(args.config)
+    state.mkdir(parents=True, exist_ok=True)
+    executable = Path(sys.executable)
+    if os.name == "nt" and executable.with_name("pythonw.exe").is_file():
+        # The Windows venv console launcher can allocate a new console for its
+        # child even when its own startup window is hidden. Use the GUI launcher.
+        executable = executable.with_name("pythonw.exe")
+    command = [str(executable), "-u", "-m", "worktree_bridge", "--config",
+               str(Path(args.config).resolve()), "serve"]
+    if args.port is not None:
+        command.extend(["--port", str(args.port)])
+    environment = dict(os.environ)
+    package_root = str(Path(__file__).resolve().parents[1])
+    environment["PYTHONPATH"] = package_root + (os.pathsep + environment["PYTHONPATH"]
+                                               if environment.get("PYTHONPATH") else "")
+    environment["PYTHONUTF8"] = "1"
+    startup_id = uuid.uuid4().hex
+    environment["WTB_STARTUP_ID"] = startup_id
+    options = {"stdin": subprocess.DEVNULL, "env": environment, "close_fds": True}
+    if os.name == "nt":
+        options["creationflags"] = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+        startup = subprocess.STARTUPINFO()
+        startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startup.wShowWindow = 0
+        options["startupinfo"] = startup
+    else:
+        options["start_new_session"] = True
+    log_path = state / "service.log"
+    with log_path.open("ab") as log:
+        process = subprocess.Popen(command, stdout=log, stderr=log, **options)
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            raise RuntimeError("Service could not start; inspect " + str(log_path))
+        try:
+            info = client.service_info(args.config)
+            current = client.get_status(args.config)
+            # Windows venv launchers may host Python in a child with another PID.
+            if info.get("startup_id") == startup_id and info["config_fingerprint"] == fingerprint:
+                return {"ok": True, "pid": info["pid"], "url": info["url"],
+                        "state": current["state"], "log": str(log_path)}
+        except client.ServiceUnavailable:
+            pass
+        time.sleep(.1)
+    raise RuntimeError("Service startup is still unconfirmed; inspect the existing process log before retrying: "
+                       + str(log_path))
+
+
+def _service_command(args):
+    from . import client
+    if args.command == "start":
+        return _start_service(args)
+    if args.command == "serve":
+        from .web import run_server
+        run_server(args.config, port=args.port or 0)
+        return {"ok": True, "stopped": True}
+    if args.command == "status":
+        return {"ok": True, **client.get_status(args.config)}
+    if args.command == "conflicts":
+        status = client.get_status(args.config)
+        return {"ok": True, "revision": status["revision"], "conflicts": status["conflicts"]}
+    if args.command == "wait":
+        return {"ok": True, **client.wait_until_synced(args.config, args.timeout)}
+    params = {}
+    if args.command == "resolve":
+        params = {"path": args.path, "choice": args.take, "expected_revision": args.revision}
+    elif args.command == "checkpoint":
+        params = {"message": args.message}
+        if args.tag:
+            params["tag"] = args.tag
+    result = client.action(args.config, args.command, params)
+    if args.command == "sync" and args.wait:
+        return {"ok": True, **client.wait_until_synced(args.config, args.timeout)}
+    return result
+
+
+def run(args):
+    if args.command == "init":
+        from .registry import init_project
+        if args.config:
+            raise ValueError("Use init --from-config to import an existing pairing")
+        remote = None
+        if args.remote:
+            if not args.path:
+                raise ValueError("init --remote requires --path /absolute/remote/repository")
+            remote = {"kind": "ssh", "host": args.remote, "root": args.path}
+            if args.port is not None:
+                remote["port"] = args.port
+        elif args.path is not None or args.port is not None:
+            raise ValueError("--path and --port require --remote")
+        if args.local_peer:
+            remote = {"kind": "local", "root": str(Path(args.local_peer).resolve())}
+        return init_project(Path.cwd(), remote=remote, name=args.name, from_config=args.from_config)
+    if args.command == "projects":
+        from .registry import list_projects
+        return {"ok": True, "projects": list_projects()}
+    if args.command == "status" and getattr(args, "fresh", False):
+        return _run_once(args)
+    if args.command in {"start", "serve", "stop", "status", "sync", "pause",
+                        "resume", "conflicts", "resolve", "wait", "checkpoint"}:
+        return _service_command(args)
+    # One-shot commands and the daemon must never write a shared pair together.
+    from .client import configuration_info
+    from .service import ControllerLock
+    config, state, _ = configuration_info(args.config)
+    state_lock = ControllerLock(state)
+    worktree_lock = None
+    remote_lease = None
+    state_lock.acquire()
+    try:
+        root = agent.root_path(config["local_root"])
+        git_dir = Path(agent.git(root, "rev-parse", "--absolute-git-dir").decode("utf-8").strip())
+        worktree_lock = ControllerLock(git_dir / "worktree-bridge-controller")
+        worktree_lock.acquire()
+        if args.command == "apply":
+            from .transport import Peer
+            remote_lease = Peer(config["remote"])
+            remote_lease.call("claim_controller", instance_id="one-shot-" + uuid.uuid4().hex)
+        return _run_once(args)
+    finally:
+        if remote_lease is not None:
+            remote_lease.close()
+        if worktree_lock is not None:
+            worktree_lock.release()
+        state_lock.release()
+
+
+def _plain(value):
+    return re.sub(r"[\x00-\x1f\x7f]", " ", str(value))
+
+
+def format_status(status):
+    """A compact terminal view of observations, never an implied fresh scan."""
+    state = status.get("state", "fresh_snapshot")
+    lines = [_plain(status.get("name", "Worktree Bridge")) + "  [" + state.upper() + "]"]
+    endpoints = status.get("git", status.get("endpoints", {}))
+    for side in ("local", "remote"):
+        current = endpoints.get(side, {})
+        dirty = "unknown" if current.get("dirty") is None else ("modified" if current["dirty"] else "clean")
+        lines.append(f"  {side:6} {_plain(current.get('branch') or '-')}  "
+                     f"{_plain(current.get('head') or '-')[:12]}  {dirty}")
+    files = status.get("files", {})
+    if files:
+        lines.append(f"  pending {files.get('pending_count', 0)}  conflicts {files.get('conflict_count', 0)}")
+    for change in status.get("pending", [])[:20]:
+        lines.append("  " + _plain(change.get("direction", "changed")) + "  " + _plain(change["path"]))
+    for conflict in status.get("conflicts", [])[:20]:
+        lines.append("  CONFLICT " + _plain(conflict["path"]) + "  " + _plain(conflict.get("reason", "")))
+    if status.get("last_error"):
+        error = status["last_error"]
+        lines.append("  " + _plain(error.get("message", error) if isinstance(error, dict) else error))
+    observed = status.get("observed_at")
+    if observed:
+        lines.append("  observed " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(observed)))
+    if "revision" in status:
+        lines.append("  revision " + _plain(status["revision"]))
+    return "\n".join(lines)
+
+
+def watch_status(config_path, interval=.5):
+    from . import client
+    if not .1 <= interval <= 60:
+        raise ValueError("watch interval must be between 0.1 and 60 seconds")
+    # Fail promptly on a missing initial registration/service; never auto-start.
+    current = client.get_status(config_path)
+    previous = None
+    last_event = 0
+    while True:
+        key = canonical({k: current.get(k) for k in ("instance_id", "state", "revision", "last_error")})
+        if key != previous:
+            print(time.strftime("%H:%M:%S") + " " + format_status(current), flush=True)
+            previous = key
+        for event in current.get("events", []):
+            if event["time"] > last_event:
+                print("  " + _plain(event["level"]).upper() + " " + _plain(event["message"]), flush=True)
+                for path in event.get("paths", []):
+                    print("    " + _plain(path), flush=True)
+                last_event = max(last_event, event["time"])
+        time.sleep(interval)
+        try:
+            current = client.get_status(config_path)
+        except client.ServiceUnavailable as exc:
+            current = {"state": "offline", "last_error": str(exc)}
+
+
 def main():
     parser = argparse.ArgumentParser(prog="worktree-bridge")
-    parser.add_argument("--config", required=True)
+    parser.add_argument("--version", action="version", version="%(prog)s 0.3.0")
+    parser.add_argument("--config", help="advanced explicit configuration override")
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("status")
+    initialize = sub.add_parser("init", help="register the current existing Git worktree")
+    binding = initialize.add_mutually_exclusive_group()
+    binding.add_argument("--remote", help="SSH host or existing SSH alias")
+    binding.add_argument("--local-peer", help="second local checkout, useful for testing")
+    binding.add_argument("--from-config", help="import an existing private pairing configuration")
+    initialize.add_argument("--path", help="absolute path of the remote Git checkout")
+    initialize.add_argument("--port", type=int)
+    initialize.add_argument("--name")
+    sub.add_parser("projects", help="list registered local worktrees without network access")
+    status = sub.add_parser("status", help="read instant cached service status")
+    status.add_argument("--fresh", action="store_true", help="explicit full scan without using the cache")
+    status.add_argument("--short", action="store_true", help="compact human-readable terminal output")
+    sub.add_parser("watch", help="print state changes and conflicts until Ctrl+C").add_argument("--interval", type=float, default=.5)
     sub.add_parser("baseline").add_argument("--refresh", action="store_true")
     sub.add_parser("plan").add_argument("--out")
     sub.add_parser("apply").add_argument("--plan", required=True)
+    sub.add_parser("start", help="start a hidden background service").add_argument("--port", type=int)
+    sub.add_parser("serve", help="run the service in the foreground").add_argument("--port", type=int)
+    sub.add_parser("stop")
+    sync = sub.add_parser("sync")
+    sync.add_argument("--wait", action="store_true")
+    sync.add_argument("--timeout", type=float, default=30)
+    sub.add_parser("pause")
+    sub.add_parser("resume")
+    sub.add_parser("conflicts")
+    resolve = sub.add_parser("resolve")
+    resolve.add_argument("path")
+    resolve.add_argument("--take", choices=("local", "remote"), required=True)
+    resolve.add_argument("--revision", required=True)
+    sub.add_parser("wait").add_argument("--timeout", type=float, default=30)
+    checkpoint = sub.add_parser("checkpoint")
+    checkpoint.add_argument("-m", "--message", required=True)
+    checkpoint.add_argument("--tag")
+    sub.add_parser("mcp", help="serve the optional MCP stdio adapter")
     args = parser.parse_args()
     try:
+        if args.command not in ("init", "projects") and args.config is None:
+            from .registry import find_config
+            args.config = str(find_config(Path.cwd()))
+        if args.command == "mcp":
+            from .mcp_server import run as run_mcp
+            run_mcp(args.config)
+            return 0
+        if args.command == "watch":
+            watch_status(args.config, args.interval)
+            return 0
         result = run(args)
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        if args.command == "status" and args.short:
+            print(format_status(result))
+        else:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result.get("ok") else 2
+    except KeyboardInterrupt:
+        return 130
     except (OSError, ValueError, RuntimeError, KeyError, subprocess.TimeoutExpired) as exc:
-        print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
+        if args.command == "mcp":
+            print(str(exc), file=sys.stderr)
+            return 2
+        error = {"ok": False, "error": str(exc)}
+        if hasattr(exc, "last_status"):
+            error.update(timed_out=True, last_status=exc.last_status)
+        print(json.dumps(error, ensure_ascii=False))
         return 2
 
 

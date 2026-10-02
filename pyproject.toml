@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "worktree-bridge"
-version = "0.2.0"
+version = "0.3.0"
 description = "Conservative two-ended working tree bridge"
 requires-python = ">=3.10"
 readme = "README.md"
@@ -12,6 +12,10 @@ license = {file = "LICENSE"}
 
 [project.scripts]
 worktree-bridge = "worktree_bridge.__main__:main"
+wtb = "worktree_bridge.__main__:main"
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.28,<2"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
