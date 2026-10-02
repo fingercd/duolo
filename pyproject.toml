@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "worktree-bridge"
+version = "0.1.0"
+description = "Conservative two-ended working tree bridge"
+requires-python = ">=3.10"
+readme = "README.md"
+license = {file = "LICENSE"}
+
+[project.scripts]
+worktree-bridge = "worktree_bridge.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
