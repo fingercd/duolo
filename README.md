@@ -2,7 +2,7 @@
 
 给本地 Agent 与 SSH 服务器使用的 Git 工作树协同原型：先看清两端的代码、文档与 Git 状态，再生成可审阅的文件同步计划。同一个文件在两端发生不同修改时，停止并报告。
 
-**状态：实验原型。** 当前提供按命令触发的 CLI 与 Agent Skill；没有后台监听、自动 Git 历史同步或 MCP 服务。需要两端停止编辑再执行写入，不能承诺任意并发编辑下零丢失。已有项目第一次接入时，需要先保全并处理历史分叉。
+**状态：0.2.0 实验版本，已完成 Windows↔Linux SSH 双向写入验收。** 当前提供按命令触发的 CLI 与 Agent Skill；没有后台监听、自动 Git 历史同步或 MCP 服务。需要两端停止编辑再执行写入，不能承诺任意并发编辑下零丢失。已有项目第一次接入时，需要先保全并处理历史分叉。
 
 ## 适用场景
 
@@ -36,7 +36,7 @@ $env:PYTHONPATH = (Join-Path (Get-Location) 'src')
 python -m worktree_bridge --help
 ```
 
-复制 [示例配置](examples/bridge.example.json) 为仓库外的 `project.local.json`，填写明确的一对工作目录。`host` 可以是现有 SSH config 的别名。`state_dir` 应是该配对专用、本机私有、位于两个项目目录之外的目录，保存基线、执行记录和备份。不要把它或真实服务器配置放进公开仓库。
+复制 [示例配置](examples/bridge.example.json) 为仓库外的 `project.local.json`，填写明确的一对工作目录。`host` 可以是现有 SSH config 的别名；省略 `port` 时采用 SSH 配置的端口，显式设置时覆盖它。工具用 `ssh -G` 读取有效的 hostname/user/port 并绑定基线，以识别别名后来指向不同端点的情况。`state_dir` 应是该配对专用、本机私有、位于两个项目目录之外的目录，保存基线、执行记录和备份。不要把它或真实服务器配置放进公开仓库。
 
 测试可把 `remote` 换为 `{"kind":"local","root":"/path/to/second-checkout"}`，从而在本机使用两个独立 Git checkout。
 
@@ -86,11 +86,15 @@ Skill 本身不授予 commit、push、启动训练或公开发布权限。用户
 - [GitHub 竞品与产品定位](docs/research.md)
 - [协同模型、Git 操作边界与后续路线](docs/design.md)
 - [验证记录与未验证范围](docs/validation.md)
+- [隔离 SSH 验收与失败恢复检查](docs/ssh-acceptance.md)
+- [已有项目首次接入](docs/onboarding.md)
 
 运行测试：
 
 ```console
 python -m unittest discover -s tests -v
 ```
+
+真实 SSH 验收需要单独准备专用测试副本，然后显式运行 `scripts/ssh_acceptance.py`。默认测试不会联网，也不会创建或修改服务器项目。
 
 代码采用 MIT 许可证。项目名为工作名称，尚未核查包名、商标或公共仓库名称的可用性。

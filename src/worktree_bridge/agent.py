@@ -16,28 +16,46 @@ DATA_DIRS = {"data", "datasets"}
 SOURCE_SUFFIXES = {".py", ".pyi", ".sh", ".ps1", ".js", ".ts", ".c", ".cc", ".cpp", ".h", ".hpp", ".cu", ".cuh"}
 SKIP_SUFFIXES = {".pem", ".key", ".p12", ".pfx", ".ckpt", ".pt", ".pth", ".safetensors", ".onnx", ".h5", ".hdf5", ".npy", ".npz", ".parquet", ".sqlite", ".db", ".log", ".zip", ".tar", ".gz", ".7z", ".mp4", ".mov"}
 SECRET_NAMES = {"id_rsa", "id_ed25519", "id_dsa", "id_ecdsa", "authorized_keys", "credentials", "credentials.json", "secrets.json"}
+# Repository-local variables reported by `git rev-parse --local-env-vars`.
+GIT_LOCAL_ENV = {"GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG", "GIT_CONFIG_PARAMETERS",
+                 "GIT_CONFIG_COUNT", "GIT_OBJECT_DIRECTORY", "GIT_DIR", "GIT_WORK_TREE",
+                 "GIT_IMPLICIT_WORK_TREE", "GIT_GRAFT_FILE", "GIT_INDEX_FILE",
+                 "GIT_NO_REPLACE_OBJECTS", "GIT_REPLACE_REF_BASE", "GIT_PREFIX",
+                 "GIT_SHALLOW_FILE", "GIT_COMMON_DIR"}
 
 
 def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def git(root, *args):
-    env = dict(os.environ)
+def git_environment():
+    env = {key: value for key, value in os.environ.items()
+           if key.upper() not in GIT_LOCAL_ENV
+           and not key.upper().startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_"))}
     env["GIT_OPTIONAL_LOCKS"] = "0"
-    proc = subprocess.run(["git", "-C", str(root), *args], stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE, timeout=30, check=False, env=env)
+    # Keep scan-error diagnostics recognizable regardless of the caller's locale.
+    env["LC_ALL"] = "C"
+    return env
+
+
+def git_process(root, *args):
+    return subprocess.run(["git", "-C", str(root), *args], stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, timeout=30, check=False,
+                          env=git_environment())
+
+
+def git(root, *args):
+    proc = git_process(root, *args)
     if proc.returncode:
         raise ValueError("git command failed: " + proc.stderr.decode("utf-8", "replace").strip())
+    if any(line.startswith(b"warning: could not open directory ")
+           for line in proc.stderr.splitlines()):
+        raise ValueError("incomplete git scan: " + proc.stderr.decode("utf-8", "replace").strip())
     return proc.stdout
 
 
 def ignored(root, rel):
-    env = dict(os.environ)
-    env["GIT_OPTIONAL_LOCKS"] = "0"
-    proc = subprocess.run(["git", "-C", str(root), "check-ignore", "-q", "--", rel],
-                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30,
-                          check=False, env=env)
+    proc = git_process(root, "check-ignore", "-q", "--", rel)
     if proc.returncode not in (0, 1):
         raise ValueError("git check-ignore failed: " + proc.stderr.decode("utf-8", "replace").strip())
     return proc.returncode == 0
@@ -78,11 +96,14 @@ def check_target(root, rel):
 
 def root_path(value):
     root = Path(value)
-    if not root.is_absolute() or not root.is_dir() or root.is_symlink():
+    if not root.is_absolute() or not root.is_dir():
         raise ValueError("root must be an existing absolute directory without a link")
-    attrs = getattr(root.lstat(), "st_file_attributes", 0)
-    if attrs & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0):
-        raise ValueError("root is a reparse point")
+    for component in (root, *root.parents):
+        if component.is_symlink():
+            raise ValueError("root or ancestor is a symlink: " + str(component))
+        attrs = getattr(component.lstat(), "st_file_attributes", 0)
+        if attrs & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0):
+            raise ValueError("root or ancestor is a reparse point: " + str(component))
     return root
 
 

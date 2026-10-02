@@ -5,12 +5,12 @@
 ```json
 {
   "local_root": "D:/work/my-project",
-  "remote": {"kind": "ssh", "host": "gpu-dev", "port": 22, "root": "/home/researcher/projects/my-project"},
+  "remote": {"kind": "ssh", "host": "gpu-dev", "root": "/home/researcher/projects/my-project"},
   "state_dir": "D:/worktree-bridge-state/my-project"
 }
 ```
 
-只接受明确的一对开发目录，不从文件夹同名自动决定配对。私有配置放在项目外；SSH host 可以用现有配置别名。不要在配置里放密码、token 或私钥内容。
+只接受明确的一对开发目录，不从文件夹同名自动决定配对。私有配置放在项目外；SSH host 可以用现有配置别名，省略 port 时保留其端口，显式 port 覆盖它。工具会把解析后的 hostname/user/port 纳入基线身份。不要在配置里放密码、token 或私钥内容。
 
 ```console
 python -m worktree_bridge --config project.local.json status
@@ -36,6 +36,8 @@ python -m worktree_bridge --config project.local.json apply --plan D:/worktree-b
 Git 操作前先暂停任何文件同步，记录两端 HEAD、分支和未提交修改，按项目规定保全各自修改。若用户已授权提交或更新 Git 历史，使用 Git 原生 fetch/push/merge 等机制处理；不擅自扩大为 commit、stash、reset 或 force push。首次历史分叉的合并选择需要用户当前目标或项目明确规则，不能按“远端通常更新”推断。
 
 Git HEAD/分支发生变化后，即使两端已经变到同一新提交，也不能沿用旧内容基线解释改动。两端重新达到预期相同提交和所选工作文件后，可显式 `baseline --refresh`，保留旧基线并记录新的共同状态。刷新只能在双方完全一致时进行，不能用来绕过冲突。当前原型不会自动完成 Git 协调步骤，不要把发现分叉写成“已修复分叉”。
+
+0.2 起 SSH 基线还绑定实际解析的端点。升级旧版 SSH 配对时若旧基线因身份字段不足被拒绝，先核对真实端点，保留旧状态目录；两端当前内容和 Git 版本已核验一致后，使用新的专用 state_dir 建立基线。不要编辑旧 baseline JSON 冒充同一身份。
 
 ## 失败恢复
 

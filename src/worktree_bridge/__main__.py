@@ -43,26 +43,49 @@ class Endpoint:
             # SSH POSIX absolute paths are also recognized below.
             if not (spec["kind"] == "ssh" and self.root.startswith("/")):
                 raise ValueError("endpoint root must be absolute")
+        if spec["kind"] == "ssh":
+            self.ssh_args, self.ssh_identity = self._ssh_configuration()
+        elif spec["kind"] != "local":
+            raise ValueError("remote kind must be local or ssh")
+
+    def _ssh_configuration(self):
+        host = self.spec["host"]
+        port = self.spec.get("port")
+        if not isinstance(host, str) or not host or host.startswith("-") or any(c.isspace() for c in host):
+            raise ValueError("invalid SSH host")
+        if port is not None and (type(port) is not int or not 1 <= port <= 65535):
+            raise ValueError("invalid SSH port")
+        args = ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
+                "-o", "ConnectTimeout=10", "-o", "ServerAliveInterval=10",
+                "-o", "ServerAliveCountMax=1"]
+        if port is not None:
+            args.extend(["-p", str(port)])
+        # -G evaluates the existing SSH configuration without connecting. Binding
+        # its endpoint fields also detects a later alias/port change in a plan.
+        proc = subprocess.run([*args, "-G", host], stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, timeout=15, check=False)
+        if proc.returncode:
+            raise RuntimeError("cannot evaluate SSH configuration: "
+                               + proc.stderr.decode("utf-8", "replace").strip())
+        resolved = {}
+        for line in proc.stdout.decode("utf-8", "replace").splitlines():
+            fields = line.split(None, 1)
+            if len(fields) == 2 and fields[0] in ("hostname", "user", "port"):
+                resolved[fields[0]] = fields[1]
+        if set(resolved) != {"hostname", "user", "port"}:
+            raise ValueError("SSH configuration lacks hostname, user or port")
+        resolved["port"] = int(resolved["port"])
+        return [*args, host], resolved
 
     def call(self, op, **kwargs):
         req = {"op": op, "root": self.root, **kwargs}
         if self.spec["kind"] == "local":
             return agent.dispatch(req)
-        if self.spec["kind"] != "ssh":
-            raise ValueError("remote kind must be local or ssh")
-        host = self.spec["host"]
-        port = self.spec.get("port", 22)
-        if not isinstance(host, str) or not host or host.startswith("-") or any(c.isspace() for c in host):
-            raise ValueError("invalid SSH host")
-        if not isinstance(port, int) or not 1 <= port <= 65535:
-            raise ValueError("invalid SSH port")
         source = Path(agent.__file__).read_bytes()
         encoded = base64.b64encode(zlib.compress(source)).decode("ascii")
         code = "import base64,zlib;exec(zlib.decompress(base64.b64decode('" + encoded + "')))"
         remote_command = "python3 -c " + shlex.quote(code)
-        cmd = ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
-               "-o", "ConnectTimeout=10", "-o", "ServerAliveInterval=10",
-               "-o", "ServerAliveCountMax=1", "-p", str(port), host, remote_command]
+        cmd = [*self.ssh_args, remote_command]
         proc = subprocess.run(cmd, input=canonical(req).encode("utf-8"),
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                               timeout=45, check=False)
@@ -103,7 +126,7 @@ def endpoint_identity(local, remote):
         remote_id = {"kind": "local", "root": str(Path(other["root"]).resolve())}
     else:
         remote_id = {"kind": "ssh", "host": other["host"],
-                     "port": other.get("port", 22), "root": str(PurePosixPath(other["root"]))}
+                     "resolved": remote.ssh_identity, "root": str(PurePosixPath(other["root"]))}
     return {"local": {"kind": "local", "root": str(Path(local.root).resolve())},
             "remote": remote_id}
 

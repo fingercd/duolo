@@ -3,7 +3,6 @@
   "remote": {
     "kind": "ssh",
     "host": "gpu-dev",
-    "port": 22,
     "root": "/home/researcher/projects/my-project"
   },
   "state_dir": "D:/worktree-bridge-state/my-project"
