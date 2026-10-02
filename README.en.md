@@ -6,7 +6,9 @@
 
 **Develop locally and over SSH: sync files, follow Git commits, and let your agent check the state.**
 
-[中文](README.md) · [Get started](#get-started) · [Agent integration](#use-with-an-agent) · [Documentation](#documentation-and-help)
+[中文](README.md) | [**English**](README.en.md)
+
+[Get started](#get-started) · [Agent integration](#use-with-an-agent) · [Documentation](#documentation-and-help)
 
 ![Python 3.10+](https://img.shields.io/badge/local-Python%203.10%2B-blue)
 ![Experimental 0.4.0](https://img.shields.io/badge/version-0.4.0%20experimental-orange)

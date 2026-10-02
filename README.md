@@ -6,7 +6,9 @@
 
 **本地与 SSH 两端开发：同步文件、跟进 Git，让 Agent 随时查询。**
 
-[English](README.en.md) · [开始使用](#开始使用) · [Agent 接入](#让-agent-使用) · [文档](#文档与帮助)
+[**中文**](README.md) | [English](README.en.md)
+
+[开始使用](#开始使用) · [Agent 接入](#让-agent-使用) · [文档](#文档与帮助)
 
 ![Python 3.10+](https://img.shields.io/badge/local-Python%203.10%2B-blue)
 ![Experimental 0.4.0](https://img.shields.io/badge/version-0.4.0%20experimental-orange)
