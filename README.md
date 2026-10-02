@@ -4,11 +4,11 @@
 
 # Duolo
 
-**本地与 SSH 两端开发：同步文件、跟进 Git，让 Agent 随时查询。**
+**Develop locally and over SSH: sync files, follow Git commits, and let your agent check the state.**
 
-[**中文**](README.md) | [English](README.en.md)
+[**English**](README.md) | [中文](README.zh-CN.md)
 
-[开始使用](#开始使用) · [Agent 接入](#让-agent-使用) · [文档](#文档与帮助)
+[Get started](#get-started) · [Agent integration](#use-with-an-agent) · [Documentation](#documentation-and-help)
 
 ![Python 3.10+](https://img.shields.io/badge/local-Python%203.10%2B-blue)
 ![Experimental 0.4.0](https://img.shields.io/badge/version-0.4.0%20experimental-orange)
@@ -16,92 +16,92 @@
 
 </div>
 
-在本地用编辑器或编码 Agent 改代码，也在 SSH 服务器上调试和运行？**Duolo 连接两端的 Git 开发目录，把文件同步、版本跟进和 Agent 可查询的状态放进同一套流程。**
+Edit code with a local editor or coding agent while also debugging and running it on an SSH server? **Duolo connects the two Git working directories, bringing file synchronization, commit coordination, and agent-queryable state into one workflow.**
 
-未提交的源码和项目文档可以双向更新；一端创建提交后，另一端在条件允许时跟进。你和 Agent 都能查看文件是否一致、Git 是否跟上，以及哪里需要处理。
+Uncommitted source code and project documents can move in both directions. When one side creates a commit, the other follows when conditions allow. You and your agent can see whether files match, whether Git has caught up, and what needs attention.
 
-**15 秒概念演示** · 本地与 SSH 两端协作
+**15-second concept video** · Local and SSH development
 
 https://github.com/user-attachments/assets/c69f531f-c31a-4bcc-bc56-32c1617054a3
 
-## 为什么用 Duolo
+## Why Duolo
 
-- **未提交的改动也能同步。** 本地或服务器保存源码、项目文档后，单侧修改自动传到另一端。
-- **文件和 Git 一起协调。** 同步工作中的内容，也在保护条件满足时跟进已有提交；不会每次保存都自动 commit。
-- **人和 Agent 查看同一份状态。** 文件、Git、连接和冲突一起查询，可在终端查看，也可通过 MCP 接入编码 Agent。
-- **需要处理的问题明确报告。** 文件冲突、历史分叉或网络问题会指出原因，由你审阅后决定下一步。
+- **Sync work before committing.** Save source code or project documents on either side, and changes made on one side automatically reach the other.
+- **Coordinate files and Git together.** Sync work in progress and follow existing commits when protective checks pass. Saving a file does not automatically create a commit.
+- **Share one view with your agent.** Query files, Git, connections, and conflicts through the CLI or connect a coding agent through MCP.
+- **Know what needs attention.** File conflicts, divergent history, and network problems are reported with their cause, so you can review and choose the next step.
 
-## 开始使用
+## Get started
 
-本机需要 **Python 3.10+、Git 和 OpenSSH**；服务器需要 **Python 3.9+ 和 Git**。先确认已有 SSH 密钥登录可用，目标主机密钥已受信任。
+Your computer needs **Python 3.10+, Git, and OpenSSH**. The server needs **Python 3.9+ and Git**. Set up SSH key login and trust the target host key first.
 
-**1. 安装 Duolo**（从 GitHub 安装，尚未发布到 PyPI）：
+**1. Install Duolo** from GitHub. It is not currently published on PyPI:
 
 ```console
 python -m pip install "duolo @ git+https://github.com/fingercd/duolo.git@v0.4.0"
 ```
 
-**2. 进入你已有的项目，告诉 Duolo 服务器上的对应目录：**
+**2. Open your existing project and tell Duolo where its server copy lives:**
 
 ```console
 cd D:/work/my-project
 duo init --remote gpu-dev --path /home/researcher/projects/my-project
 ```
 
-`gpu-dev` 是你的 SSH 主机名或配置别名，替换成实际目标；目录也换成自己的项目路径。`init` 只记住这两个目录，启动后才开始同步。
+Replace `gpu-dev` with your SSH hostname or config alias, and use your own project paths. `init` only remembers the two directories; synchronization starts when you launch the service.
 
-**首次使用前，两端须在同一个 Git 提交、同一个分支，准备同步的文件内容也要相同。** 已经有不同修改的项目，先按[首次接入说明](docs/onboarding.md)保留并整理两边的工作。
+**Before first use, both copies must have the same Git commit, the same branch, and matching files to synchronize.** If they already contain different changes, preserve and reconcile both sides using the [onboarding guide](docs/onboarding.md).
 
-**3. 启动并查看结果：**
+**3. Start and check the result:**
 
 ```console
 duo start
 duo status --short
 ```
 
-现在可以继续编辑。Duolo 在后台同步，Windows 上不会弹出额外控制台窗口。之后在这个项目或其子目录里直接使用 `duo`，不必反复填写服务器路径。
+Keep editing. Duolo syncs in the background, without an extra console window on Windows. Run subsequent `duo` commands inside this project or its subdirectories; no need to repeat the server path.
 
-## 常用命令
+## Everyday commands
 
-| 命令 | 做什么 |
+| Command | What it does |
 |---|---|
-| `duo status --short` | 查看文件、Git、连接和冲突状态。 |
-| `duo watch` | 持续显示状态变化，Ctrl+C 退出查看。 |
-| `duo sync --wait` | 立即同步，并等待确认结果。 |
-| `duo pause` / `duo resume` | 暂停 / 恢复自动同步。 |
-| `duo checkpoint -m "experiment setup" --tag exp-001` | 明确保存一次 Git 提交，并给它加上可选标签。 |
-| `duo stop` | 停止当前项目的后台同步。 |
+| `duo status --short` | Show file, Git, connection, and conflict state. |
+| `duo watch` | Show state changes continuously; Ctrl+C ends observation. |
+| `duo sync --wait` | Sync now and wait for confirmation. |
+| `duo pause` / `duo resume` | Pause / resume automatic sync. |
+| `duo checkpoint -m "experiment setup" --tag exp-001` | Explicitly save a Git commit and an optional tag. |
+| `duo stop` | Stop this project's background synchronization. |
 
-`duo status` 默认返回 JSON，适合脚本和 Agent；`--short` 适合人看。状态来自后台最近一次检查，断线或检查过期也会显示出来。更多选项用 `duo --help`，配置与状态说明见[文档](docs/configuration.md)。
+`duo status` returns JSON by default for scripts and agents; `--short` is for people. Status comes from the service's latest check and reports disconnections or outdated observations. Use `duo --help` for more options, or see [configuration and states](docs/configuration.md).
 
-## 让 Agent 使用
+## Use with an agent
 
-可选 MCP 接口让编码 Agent **查询与 CLI 相同的文件、Git 和连接状态**，并请求同步、等待新的检查结果、处理冲突或保存一次提交。
+The optional MCP interface lets a coding agent **query the same file, Git, and connection state as the CLI**, request synchronization, wait for a new check, resolve conflicts, or save a commit.
 
-安装 MCP 支持后，在已经连接好的项目里启动适配器：
+Install MCP support, then run the adapter inside your connected project:
 
 ```console
 python -m pip install "duolo[mcp] @ git+https://github.com/fingercd/duolo.git@v0.4.0"
 duo mcp
 ```
 
-按[MCP 接入说明](docs/mcp.md)添加到你的 Agent 客户端。也可安装[项目 Skill](skills/duolo/SKILL.md)，帮助 Agent 在同步后重新读取变化的项目规则。
+Follow the [MCP guide](docs/mcp.md) to connect your agent client. You can also install the [project Skill](skills/duolo/SKILL.md), which helps an agent reread changed project rules after synchronization.
 
-## 使用范围
+## Scope
 
-**0.4.0 实验版本。** 已完成本机测试、正式 MCP SDK 测试和真实 Windows ↔ Linux SSH 验收；具体结果见[验证记录](docs/validation.md)。
+**Experimental release 0.4.0.** Local tests, official MCP SDK tests, and real Windows ↔ Linux SSH acceptance are complete. See the [validation record](docs/validation.md) for results.
 
-- 同步源码和项目文档，训练数据、模型权重及常见产物不在同步范围内。删除默认关闭；完整范围见[配置](docs/configuration.md)与[设计说明](docs/design.md)。
-- Git 历史分叉、文件冲突或网络问题会报告出来。Duolo 不自动合并冲突、不向 GitHub 推送项目，也不保证任意同时编辑都不会丢失修改。
-- 正在运行的训练使用固定代码副本。同步只连接你选定的两个开发目录，不接管其他项目或运行快照。
+- Sync covers source code and project documents. Training data, model weights, and common outputs are excluded. Deletion is off by default; see [configuration](docs/configuration.md) and [design](docs/design.md) for the full scope.
+- Divergent Git history, file conflicts, and network problems are reported. Duolo does not automatically merge conflicts or push your project to GitHub, and does not guarantee zero loss under arbitrary simultaneous editing.
+- Active training should use a fixed code copy. Sync connects only the two development directories you select; it does not adopt other projects or running snapshots.
 
-## 文档与帮助
+## Documentation and help
 
-[首次接入](docs/onboarding.md) · [配置与状态](docs/configuration.md) · [MCP](docs/mcp.md) · [实现与限制](docs/design.md) · [验证记录](docs/validation.md)
+[Onboarding](docs/onboarding.md) · [Configuration and states](docs/configuration.md) · [MCP](docs/mcp.md) · [Implementation and limits](docs/design.md) · [Validation](docs/validation.md)
 
-发现问题或有建议，欢迎提交 [Issue](https://github.com/fingercd/duolo/issues)。附上复现步骤，分享日志前去掉真实主机、私有路径和秘密内容。
+Detailed reference pages are currently in Chinese. Report bugs or suggestions in [Issues](https://github.com/fingercd/duolo/issues), with reproduction steps. Remove real hosts, private paths, and secret contents from logs before sharing.
 
-从源码开发：
+To develop from source:
 
 ```console
 git clone https://github.com/fingercd/duolo.git
@@ -110,4 +110,4 @@ python -m pip install -e .
 python -m unittest discover -s tests -v
 ```
 
-采用 [MIT 许可证](LICENSE)。
+Licensed under [MIT](LICENSE).
