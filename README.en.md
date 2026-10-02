@@ -4,7 +4,7 @@
 
 # Duolo
 
-**Write code locally, run it on your server, and sync changes both ways.**
+**Develop locally and over SSH: sync files, follow Git commits, and let your agent check the state.**
 
 [中文](README.md) · [Get started](#get-started) · [Agent integration](#use-with-an-agent) · [Documentation](#documentation-and-help)
 
@@ -14,9 +14,9 @@
 
 </div>
 
-Edit code with your local editor or coding agent, then train, evaluate, or debug on a Linux server? **Duolo connects the two project directories and automatically sends saved code and documents to the other side.** Changes made on the server can come back to your computer too, reducing manual uploads and downloads.
+Edit code with a local editor or coding agent while also debugging and running it on an SSH server? **Duolo connects the two Git working directories, bringing file synchronization, commit coordination, and agent-queryable state into one workflow.**
 
-A few commands show sync results and files that differ. Your coding agent can also check and operate the pair directly.
+Uncommitted source code and project documents can move in both directions. When one side creates a commit, the other follows when conditions allow. You and your agent can see whether files match, whether Git has caught up, and what needs attention.
 
 **Duolo in 59 seconds** · Mandarin narration and Chinese captions
 
@@ -24,10 +24,10 @@ https://github.com/user-attachments/assets/5c86414d-e2ca-4511-a423-c35c70e661c4
 
 ## Why Duolo
 
-- **Edit on either side.** Changes made on one side sync to the other, including source code and project documents.
-- **See conflicts clearly.** Different edits to the same file stop synchronization and are reported, so you can choose which version to keep.
-- **Keep Git commits aligned.** When conditions allow, a commit on one side updates the other to the same commit. Saving a file does not automatically create a commit.
-- **Use it yourself or with an agent.** Check status in your terminal, or use MCP to let a coding agent inspect, sync, and resolve conflicts.
+- **Sync work before committing.** Save source code or project documents on either side, and changes made on one side automatically reach the other.
+- **Coordinate files and Git together.** Sync work in progress and follow existing commits when protective checks pass. Saving a file does not automatically create a commit.
+- **Share one view with your agent.** Query files, Git, connections, and conflicts through the CLI or connect a coding agent through MCP.
+- **Know what needs attention.** File conflicts, divergent history, and network problems are reported with their cause, so you can review and choose the next step.
 
 ## Get started
 
@@ -63,7 +63,7 @@ Keep editing. Duolo syncs in the background, without an extra console window on 
 
 | Command | What it does |
 |---|---|
-| `duo status --short` | Show current state and files that differ. |
+| `duo status --short` | Show file, Git, connection, and conflict state. |
 | `duo watch` | Show state changes continuously; Ctrl+C ends observation. |
 | `duo sync --wait` | Sync now and wait for confirmation. |
 | `duo pause` / `duo resume` | Pause / resume automatic sync. |
@@ -74,7 +74,7 @@ Keep editing. Duolo syncs in the background, without an extra console window on 
 
 ## Use with an agent
 
-The optional MCP interface lets a coding agent **check whether both copies match, request synchronization, resolve conflicts, or save a commit**.
+The optional MCP interface lets a coding agent **query the same file, Git, and connection state as the CLI**, request synchronization, wait for a new check, resolve conflicts, or save a commit.
 
 Install MCP support, then run the adapter inside your connected project:
 
