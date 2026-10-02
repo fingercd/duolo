@@ -1,10 +1,12 @@
 # 当前实现与验证范围
 
-更新：2026-10-02，版本 0.3.0。Worktree Bridge 是面向明确一对开发工作树的实验工具，当前采用仓库内注册与 CLI/MCP 操作，无独立前端。
+更新：2026-10-02，版本 0.4.0。Duolo 是面向明确一对开发工作树的实验工具，主命令为 `duo`，Python 包与模块为 `duolo`，公开仓库为 `fingercd/duolo`。0.4 统一产品名称与传播物料，沿用 0.3 的注册与 CLI/MCP 工作流，无独立前端。
 
 ## 当前入口
 
-在已有 Git 仓库运行 `wtb init --remote gpu-dev --path /home/researcher/projects/my-project` 注册配对，再用 `wtb start` 启动本机后台服务。注册不执行 `git init`、不提交、不覆盖文件、不立即同步。配置保存在本工作树的 Git 私有目录，注册索引和默认状态位于本机用户状态目录；后续命令从仓库或子目录自动发现配对。旧 JSON 可用 `init --from-config` 迁移，`--config` 保留显式覆盖。
+在已有 Git 仓库运行 `duo init --remote gpu-dev --path /home/researcher/projects/my-project` 注册配对，再用 `duo start` 启动本机后台服务。注册不执行 `git init`、不提交、不覆盖文件、不立即同步。配置保存在本工作树的 Git 私有目录，注册索引和默认状态位于本机用户状态目录；后续命令从仓库或子目录自动发现配对。旧 JSON 可用 `init --from-config` 迁移，`--config` 保留显式覆盖。
+
+已有配对保留 `worktree-bridge/config.json` 和 `WorktreeBridge` / `worktree-bridge` 用户状态布局，以继续发现原配置、基线和记录；`X-WTB-*` 本机协议也保留兼容。它们是内部兼容名称，使用新命令不需要搬动状态或重新建立基线。公开 Skill 的当前入口为 [skills/duolo/SKILL.md](skills/duolo/SKILL.md)。
 
 `status` 默认读后台缓存并返回 JSON，`--short` 给出简短文本；服务未启动时失败并提示启动。`watch` 持续显示状态变化和事件。`status --fresh` 保留旧全量扫描入口。`sync` 请求同步，`wait` 发起只读新观察并等待确认一致，不能用保存前的绿色缓存满足等待，也不绕过暂停或关闭自动同步。
 
@@ -20,7 +22,7 @@ CLI、公开 Skill 和可选官方 MCP SDK 适配器共享同一配对服务。M
 
 ## 验证与历史证据
 
-0.3 本轮已完成本机隔离集成、注册 CLI 与正式 MCP SDK 接入测试。校园网络恢复后，已在专用隔离副本完成真实 Windows→Linux 持久 SSH 端到端验收，覆盖观察屏障、缓存状态、两端文件编辑、暂停与冲突选择、创建/重命名/删除、远端原生提交跟进及 checkpoint/tag。具体结果、性能和失败场景由 [验证记录](docs/validation.md)维护。
+2026-10-02 记录的 0.3 验收完成了本机隔离集成、注册 CLI 与正式 MCP SDK 接入测试，以及专用隔离副本上的真实 Windows→Linux 持久 SSH 端到端验收，覆盖观察屏障、缓存状态、两端文件编辑、暂停与冲突选择、创建/重命名/删除、远端原生提交跟进及 checkpoint/tag。这些是更名前的日期化证据，不是 0.4 新测量；具体结果、性能和失败场景由 [验证记录](docs/validation.md)维护。
 
 0.2 的真实隔离 SSH 双向写入验收是已保留的历史证据，覆盖当时的显式计划路径、冲突停止、过期计划拒绝和失败恢复。0.2 还修正过 Git 环境变量污染、祖先链接、不完整目录扫描和 SSH alias 端口覆盖；旧 0.1 SSH 基线身份不足时，保留旧状态并另建专用状态，不编辑旧基线冒充同一端点。
 

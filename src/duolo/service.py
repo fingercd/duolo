@@ -112,7 +112,7 @@ class BridgeService:
         self._failures = {}
         self._force_at = 0
         self._revision = 0
-        self._view = {"schema": 1, "version": "0.3.0",
+        self._view = {"schema": 1, "version": "0.4.0",
                       "name": self.config.get("name", Path(self.config["local_root"]).name),
                       "instance_id": self.instance_id,
                       "config_fingerprint": self.config_fingerprint,

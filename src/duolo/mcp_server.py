@@ -75,7 +75,7 @@ def create_server(config_path):
 
     project = _BoundProject(config_path, client)
     server = FastMCP(
-        "Worktree Bridge",
+        "Duolo",
         instructions=(
             "This server controls only the project fixed by its startup configuration. "
             "Status is the daemon's cached observation: inspect updated_at, connection, "
@@ -163,7 +163,7 @@ def main():
     import argparse
     import sys
 
-    parser = argparse.ArgumentParser(description="MCP stdio adapter for one local Worktree Bridge daemon")
+    parser = argparse.ArgumentParser(description="MCP stdio adapter for one local Duolo daemon")
     parser.add_argument("--config", required=True)
     args = parser.parse_args()
     try:

@@ -11,7 +11,7 @@ from unittest import mock
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 sys.path.insert(0, str(SRC))
-from worktree_bridge import __main__ as cli
+from duolo import __main__ as cli
 
 
 class CLITests(unittest.TestCase):
@@ -22,15 +22,15 @@ class CLITests(unittest.TestCase):
         self.project = self.root / "project"
         self.project.mkdir()
         subprocess.run(["git", "init", "--template=", "-b", "main", str(self.project)],
-                       check=True, capture_output=True)
+                       check=True, capture_output=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         self.env = dict(os.environ, PYTHONPATH=str(SRC), PYTHONUTF8="1",
                         LOCALAPPDATA=str(self.root / "registration-home"),
                         XDG_STATE_HOME=str(self.root / "registration-home"))
 
     def call(self, *args, cwd=None):
-        process = subprocess.run([sys.executable, "-m", "worktree_bridge", *args],
+        process = subprocess.run([sys.executable, "-m", "duolo", *args],
                                  cwd=cwd or self.project, env=self.env, capture_output=True,
-                                 text=True, encoding="utf-8", timeout=30)
+                                 text=True, encoding="utf-8", timeout=30, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         return process.returncode, process.stdout, process.stderr
 
     def test_init_registers_existing_repository_without_remote_connection(self):
@@ -69,7 +69,7 @@ class CLITests(unittest.TestCase):
                     "conflicts": [{"path": "AGENTS.md", "reason": "both_changed"}],
                     "events": [{"time": 1, "level": "error", "message": "conflict\x1b[31m"}]}
         output = io.StringIO()
-        with mock.patch("worktree_bridge.client.get_status", side_effect=[initial, conflict, KeyboardInterrupt]), \
+        with mock.patch("duolo.client.get_status", side_effect=[initial, conflict, KeyboardInterrupt]), \
              mock.patch("time.sleep"), contextlib.redirect_stdout(output):
             with self.assertRaises(KeyboardInterrupt):
                 cli.watch_status("unused", .1)

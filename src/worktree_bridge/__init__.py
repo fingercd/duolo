@@ -1,1 +1,1 @@
-"""Conservative working tree bridge."""
+"""Legacy module entry point; the implementation lives in duolo."""

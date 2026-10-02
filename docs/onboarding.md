@@ -1,4 +1,4 @@
-# 已有项目首次接入
+# Duolo：已有项目首次接入
 
 首次接入不能从“让 baseline 通过”倒推覆盖哪一端。先记录双方 Git SHA/分支、未提交状态、关键文档、换行与机器专用目录；保留旧工作再决定新开发位置。
 
@@ -15,19 +15,19 @@
 
 这条路径的结果是“新开发副本已配对”。旧目录的后续编辑不会自动进入新配对。用户需要明确后续在哪一对目录开发，不能同时把旧目录、新目录和运行快照都当权威。
 
-## 0.3 注册与启用
+## 当前注册与启用
 
 在选定的本地开发副本运行：
 
 ```console
 cd D:/work/my-project
-wtb init --remote gpu-dev --path /home/researcher/projects/my-project
-wtb start
-wtb status --short
-wtb wait --timeout 30
+duo init --remote gpu-dev --path /home/researcher/projects/my-project
+duo start
+duo status --short
+duo wait --timeout 30
 ```
 
-`init` 只注册已有 Git 工作树，不运行 `git init`、不覆盖、不提交、不立即同步。已有私有 JSON 配置可使用 `wtb init --from-config D:/work/bridge-config/project.json`，注册后命令从仓库或子目录发现配对，不需每次指定 `--config`。
+`init` 只注册已有 Git 工作树，不运行 `git init`、不覆盖、不提交、不立即同步。已有私有 JSON 配置可使用 `duo init --from-config D:/work/bridge-config/project.json`，注册后命令从仓库或子目录发现配对，不需每次指定 `--config`。
 
 `start` 才启用后台同步策略；首次基线仍要求 HEAD、具名分支和所选文件一致。服务观察两端改动，默认自动同步单侧受支持文件并受保护地跟进已有 Git commit，不自动创建提交。`wait` 发起新一轮只读核对，不绕过暂停或触发传输；冲突与 `git_blocked` 需要审阅处理。重要版本可显式 `checkpoint` / tag，Agent 同步后重读变化规则。
 
@@ -43,4 +43,4 @@ wtb wait --timeout 30
 
 如果原仓库 HEAD/branch 不同，先保留双方工作并明确后续目标。新副本可以从双方认可的共同版本出发，但不能因此把其中一边的现有改动视为可以丢弃。需要逐项审阅补丁和文档；遇到同文件不同内容时，依旧遵循冲突停下的政策。
 
-0.3 已提供可选 MCP、后台监听与受保护的 Git 快进；不自动迁移任意历史分叉、不合并冲突文档、不移动已运行实验。本轮已完成本机集成、正式 MCP SDK 测试，以及专用副本上的真实 Windows→Linux 持久 SSH 端到端验收；具体功能与性能见[验证记录](validation.md)，0.2 历史 SSH 证据另行保留。
+Duolo 0.4 沿用 0.3 的可选 MCP、后台监听与受保护的 Git 快进；不自动迁移任意历史分叉、不合并冲突文档、不移动已运行实验。更名前 0.3 的本机集成、正式 MCP SDK 测试与专用副本上的真实 Windows→Linux 持久 SSH 端到端验收见[验证记录](validation.md)，0.2 历史 SSH 证据另行保留。改名不要求重新迁入原工作或搬动旧配对的状态目录。

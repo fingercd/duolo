@@ -202,7 +202,7 @@ def find_config(cwd):
         root, gitdir = _metadata(cwd)
         path = _config_path(gitdir)
         if not path.is_file():
-            raise RuntimeError("This Git worktree is not registered; run 'wtb init' in it first")
+            raise RuntimeError("This Git worktree is not registered; run 'duo init' in it first")
         _validate_config(_read_json(path, "project configuration"), root)
         return path
     except OSError as exc:

@@ -9,7 +9,7 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from worktree_bridge import client
+from duolo import client
 
 
 class ClientTests(unittest.TestCase):

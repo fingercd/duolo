@@ -7,7 +7,7 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from worktree_bridge.transport import Peer, PeerError
+from duolo.transport import Peer, PeerError
 
 
 class TransportTests(unittest.TestCase):
@@ -15,10 +15,10 @@ class TransportTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name).resolve()
         for args in (("init", "-b", "main"), ("config", "user.name", "Fixture"), ("config", "user.email", "fixture@example.invalid")):
-            subprocess.run(["git", "-C", str(self.root), *args], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(self.root), *args], check=True, capture_output=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         (self.root / "file.py").write_bytes(b"initial")
-        subprocess.run(["git", "-C", str(self.root), "add", "."], check=True, capture_output=True)
-        subprocess.run(["git", "-C", str(self.root), "commit", "-m", "initial"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(self.root), "add", "."], check=True, capture_output=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        subprocess.run(["git", "-C", str(self.root), "commit", "-m", "initial"], check=True, capture_output=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         self.addCleanup(self.temp.cleanup)
 
     def peer(self, **kwargs):

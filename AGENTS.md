@@ -1,12 +1,13 @@
-# Worktree Bridge 开发约定
+# Duolo 开发约定
 
-本项目维护本地 Agent 与 SSH 服务器之间显式配对的开发工作树。0.3 提供仓库内注册、后台增量同步、CLI 状态与可选 MCP；功能与验证边界以 README、可运行代码和 `docs/validation.md` 为准。
+本项目维护本地 Agent 与 SSH 服务器之间显式配对的开发工作树。当前版本 0.4.0 使用产品名 Duolo、主命令 `duo` 和 Python 包/模块 `duolo`；沿用 0.3 的仓库内注册、后台增量同步、CLI 状态与可选 MCP。功能与验证边界以 README、可运行代码和 `docs/validation.md` 为准。
 
 - 首次进入先读 `CONTEXT.md`；改同步行为时按需读 `docs/design.md` 和相关测试。
 - `agent.py`、`runtime_agent.py`、`git_ops.py` 等远端执行代码保持 Python 3.9 语法兼容及标准库依赖。本地 CLI 支持 Python 3.10+，官方 MCP SDK 只作为可选 extra。
 - Git 元数据不作为同步文件。文件内容、Git HEAD/分支与 Agent 已读取的上下文分别核对，不能用一种状态替代其他状态。
 - 基线必须属于同一对端点与同一 Git 版本；任何可导致覆盖的判断都需要具体反例测试。不能通过放宽冲突检查让测试通过。
 - `init` 仅向 Git 私有目录和本机注册索引写入配对，不创建仓库、不提交、不同步。默认命令从当前工作树发现配对，`--config` 保留高级覆盖；同 origin 不能作为自动配对依据。
+- 旧配对继续使用 `.git/worktree-bridge`、`WorktreeBridge` 用户状态目录和既有 `X-WTB-*` 本机协议。改产品名不等于迁移持久状态；按实现维护兼容，不对这些路径或协议做全局替换。
 - 后台服务拥有文件与 Git 动作的串行控制权。默认 `status` 读缓存，过期观察不能显示已同步；`wait` 发起只读新观察，不执行传输或绕过暂停。旧 `apply` 不得与活跃服务同时写入。
 - 自动 Git 只在保护条件满足时跟进已有 commit，不自动创建提交、不推送项目 GitHub、不合并分叉。显式 `checkpoint` 可从本地创建 commit/tag，且不运行 `git commit` hooks；保护独立暂存工作与目标字节。
 - 涉及写入的测试使用临时 Git 工作树，不使用真实研究项目、训练快照或用户仓库试写。真实环境检查按当前任务授权执行。
@@ -14,4 +15,4 @@
 - 公共仓库只放通用源码、文档、示例和测试。真实 SSH 地址、用户绝对路径、状态、备份和审计清单放在仓库外。
 - 验证入口：`python -m unittest discover -s tests -v`；Skill 文档与 CLI 行为一起更新。不在文档中把路线图写成已实现功能。
 - 同步后须重读变化的 `AGENTS.md`、`CONTEXT.md` 等项目上下文。文档到达磁盘不证明运行中的 Agent 已读取，也不提供本轮以外的操作授权。
-- 区分日期化验收：0.2 的真实 Windows↔Linux SSH 显式计划证据保留；0.3 已完成本机集成、正式 MCP SDK 和真实 Windows→Linux 持久 SSH 端到端验收。细项与性能以 `docs/validation.md` 为准，不把单一已测环境扩展为所有平台或网络均已验证。
+- 区分日期化验收：0.2 的真实 Windows↔Linux SSH 显式计划证据保留；0.3 的本机集成、正式 MCP SDK 和真实 Windows→Linux 持久 SSH 端到端验收单独记录。0.4 的改名与传播物料不产生新的性能结论；细项以 `docs/validation.md` 为准，不把单一已测环境扩展为所有平台或网络均已验证。

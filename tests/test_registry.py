@@ -11,7 +11,7 @@ from unittest import mock
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 sys.path.insert(0, str(SRC))
-from worktree_bridge import registry
+from duolo import registry
 
 
 class RegistryTests(unittest.TestCase):
