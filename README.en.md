@@ -18,9 +18,9 @@ Edit code with a local editor or coding agent while also debugging and running i
 
 Uncommitted source code and project documents can move in both directions. When one side creates a commit, the other follows when conditions allow. You and your agent can see whether files match, whether Git has caught up, and what needs attention.
 
-**Duolo in 59 seconds** · Mandarin narration and Chinese captions
+**15-second concept video** · Local and SSH development
 
-https://github.com/user-attachments/assets/5c86414d-e2ca-4511-a423-c35c70e661c4
+https://github.com/user-attachments/assets/c69f531f-c31a-4bcc-bc56-32c1617054a3
 
 ## Why Duolo
 

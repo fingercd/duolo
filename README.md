@@ -18,9 +18,9 @@
 
 未提交的源码和项目文档可以双向更新；一端创建提交后，另一端在条件允许时跟进。你和 Agent 都能查看文件是否一致、Git 是否跟上，以及哪里需要处理。
 
-**59 秒了解 Duolo** · 中文配音与字幕
+**15 秒概念演示** · 本地与 SSH 两端协作
 
-https://github.com/user-attachments/assets/5c86414d-e2ca-4511-a423-c35c70e661c4
+https://github.com/user-attachments/assets/c69f531f-c31a-4bcc-bc56-32c1617054a3
 
 ## 为什么用 Duolo
 

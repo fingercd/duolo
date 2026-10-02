@@ -1,22 +1,18 @@
 {
-  "title": "Duolo — 两端开发，同步推进",
-  "url": "https://github.com/user-attachments/assets/5c86414d-e2ca-4511-a423-c35c70e661c4",
+  "title": "Duolo — 本地与 SSH 两端协作",
+  "url": "https://github.com/user-attachments/assets/c69f531f-c31a-4bcc-bc56-32c1617054a3",
   "poster": "duolo-poster.jpg",
-  "duration_seconds": 59.1,
-  "width": 1920,
-  "height": 1080,
-  "fps": 30,
-  "bytes": 5166406,
-  "sha256": "3493291367d7c39d5a98d5aa8b7fb1aa11d1b93dfe594203acbc41e7c11cf93c",
-  "narration": "Mandarin, Kokoro Chinese v1.1 + Misaki Chinese G2P, zf_001",
-  "captions": "Phrase boundaries from individual synthesized utterances",
-  "music": "Original deterministic synthesis, seed 20261002",
-  "animation": "Original HTML/GSAP compositions, rendered with Hyperframes 0.8.111",
-  "demonstration": "Illustrated CLI workflow with fictional project paths",
+  "duration_seconds": 15.083333,
+  "width": 1344,
+  "height": 768,
+  "fps": 24,
+  "bytes": 2684032,
+  "sha256": "0a637f80db14cc7ba6d096675389288c8527acee76d1a8e7bda28223d68e47da",
+  "source": "User-provided MiniMax H3 video",
+  "demonstration": "Animated concept of two-way development file synchronization; not a recording of the product interface",
   "verified": {
-    "h264_aac": true,
-    "black_intervals": 0,
-    "integrated_loudness_lufs": -16.8,
-    "true_peak_dbfs": -1.5
+    "video_codec": "h264",
+    "audio_codec": "aac",
+    "uploaded_without_reencoding": true
   }
 }
