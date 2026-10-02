@@ -18,7 +18,9 @@ Edit code with your local editor or coding agent, then train, evaluate, or debug
 
 A few commands show sync results and files that differ. Your coding agent can also check and operate the pair directly.
 
-<!-- PROMO-VIDEO: Embed the project promo video here; the project maintainer will supply the actual media link. -->
+**Duolo in 59 seconds** · Mandarin narration and Chinese captions
+
+https://github.com/user-attachments/assets/5c86414d-e2ca-4511-a423-c35c70e661c4
 
 ## Why Duolo
 

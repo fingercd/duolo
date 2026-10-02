@@ -1,0 +1,22 @@
+{
+  "title": "Duolo — 两端开发，同步推进",
+  "url": "https://github.com/user-attachments/assets/5c86414d-e2ca-4511-a423-c35c70e661c4",
+  "poster": "duolo-poster.jpg",
+  "duration_seconds": 59.1,
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "bytes": 5166406,
+  "sha256": "3493291367d7c39d5a98d5aa8b7fb1aa11d1b93dfe594203acbc41e7c11cf93c",
+  "narration": "Mandarin, Kokoro Chinese v1.1 + Misaki Chinese G2P, zf_001",
+  "captions": "Phrase boundaries from individual synthesized utterances",
+  "music": "Original deterministic synthesis, seed 20261002",
+  "animation": "Original HTML/GSAP compositions, rendered with Hyperframes 0.8.111",
+  "demonstration": "Illustrated CLI workflow with fictional project paths",
+  "verified": {
+    "h264_aac": true,
+    "black_intervals": 0,
+    "integrated_loudness_lufs": -16.8,
+    "true_peak_dbfs": -1.5
+  }
+}

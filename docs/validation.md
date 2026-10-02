@@ -1,6 +1,6 @@
 # Duolo 验证与历史记录
 
-记录日期：2026-10-02。当前产品版本为 Duolo 0.4.0；下方已记录的测试与测量属于更名前的 Worktree Bridge 0.3 / 0.2。真实服务器配置、项目清单、状态、备份与原始测量保留在仓库外。
+记录日期：2026-10-02。当前产品版本为 Duolo 0.4.0；各节区分当前兼容回归与更名前的 Worktree Bridge 0.3 / 0.2 验收。真实服务器配置、项目清单、状态、备份与原始测量保留在仓库外。
 
 0.4 统一产品名 Duolo、主命令 `duo`、Python 包/模块 `duolo` 与公开仓库 `fingercd/duolo`。名称与传播物料变更不产生新的性能数字，也不把下方历史验收改标为 0.4。改名后的回归结果以对应提交的测试记录与 Actions 为准；当前用法见 [README](../README.md)、[配置](configuration.md)和 [MCP](mcp.md)。
 
@@ -9,6 +9,8 @@
 在隔离环境安装新 Duolo wheel，并保留旧版 0.3 wheel 作为兼容测试目标。完整 16 模块共 **207 项：201 通过、6 跳过，零失败、零错误**。6 项跳过为当前 Windows 缺少创建 symlink 权限的 3 项，以及仅在专用 Linux CI 开启的 3 项真实 SSH 用例。源码、测试与入口配置共 34 个文件的 SHA256 前后不变。
 
 新增 6 项兼容测试全部实际执行：`duo` 与旧命令入口共用实现；新模块和兼容模块入口可用；新 CLI 能读取、复用真实 0.3 后台进程，重复注册保持原配置、索引与服务记录不变。官方 MCP stdio、持久 peer、Git 跟进与 Windows 无窗口启动检查均通过。此次测试不产生新的同步性能数字。
+
+更名提交 `f1207cf` 的 [GitHub Actions](https://github.com/fingercd/duolo/actions/runs/37013537504) 全部通过：Windows / Ubuntu 的 Python 3.10、3.12 四组测试，以及专用 Linux loopback SSH 协议测试。后续仅修改宣传片与文档的提交仍由仓库 CI 检查。
 
 ## 0.3 注册与常驻同步
 
