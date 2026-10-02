@@ -18,7 +18,7 @@ class RegistryTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.base = Path(self.temp.name)
+        self.base = Path(self.temp.name).resolve()
         self.app = self.base / "private-app"
         env = mock.patch.dict(os.environ, {
             "LOCALAPPDATA": str(self.app), "XDG_STATE_HOME": str(self.app),
@@ -30,7 +30,8 @@ class RegistryTests(unittest.TestCase):
 
     def git(self, root, *args):
         return subprocess.run(["git", "-C", str(root), *args], env=registry.git_environment(),
-                              capture_output=True, text=True, encoding="utf-8", check=True).stdout.strip()
+                              capture_output=True, text=True, encoding="utf-8", check=True,
+                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout.strip()
 
     def repo(self, name):
         root = self.base / name
@@ -60,7 +61,8 @@ class RegistryTests(unittest.TestCase):
         self.assertEqual((self.local / ".git" / "config").read_bytes(), git_config)
         self.assertEqual(self.git(self.local, "status", "--porcelain"), status)
         head = subprocess.run(["git", "-C", str(self.local), "rev-parse", "--verify", "HEAD"],
-                              capture_output=True, env=registry.git_environment())
+                              capture_output=True, env=registry.git_environment(),
+                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         self.assertNotEqual(head.returncode, 0, "registration must not create an initial commit")
         self.assertEqual(len(registry.list_projects()), 1)
         self.assertEqual(registry.list_projects()[0]["name"], "experiment")
@@ -141,6 +143,100 @@ class RegistryTests(unittest.TestCase):
             self.assertEqual(registry.find_config(alias), path)
         self.assertEqual(path.read_bytes(), original_config)
         self.assertEqual(index_path.read_bytes(), original_index)
+
+    def windows_short_path(self, path):
+        import ctypes
+
+        get_short_path = ctypes.WinDLL("kernel32", use_last_error=True).GetShortPathNameW
+        get_short_path.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint]
+        get_short_path.restype = ctypes.c_uint
+        buffer = ctypes.create_unicode_buffer(32768)
+        length = get_short_path(str(path), buffer, len(buffer))
+        if not length:
+            raise ctypes.WinError(ctypes.get_last_error())
+        alias = Path(buffer.value)
+        if alias == path.resolve():
+            self.skipTest("This Windows filesystem does not provide an 8.3 alias for the fixture")
+        self.assertTrue(alias.exists())
+        return alias
+
+    @unittest.skipUnless(os.name == "nt", "Windows 8.3 path aliases")
+    def test_windows_short_path_registration_and_discovery_are_idempotent(self):
+        root = self.repo("registration worktree with a long name")
+        short_root = self.windows_short_path(root)
+        peer = self.base / "local peer with a long name"
+        peer.mkdir()
+        short_peer = self.windows_short_path(peer)
+        first = registry.init_project(short_root, remote={"kind": "local", "root": str(short_peer)})
+        self.assertEqual(first["local_root"], str(root))
+        path = root / ".git" / "worktree-bridge" / "config.json"
+        self.assertEqual(Path(first["config_path"]), path)
+        saved = path.read_bytes()
+        index_path = registry._registry_root() / "registry.json"
+        index = index_path.read_bytes()
+        for alias in (root, short_root):
+            repeated = registry.init_project(alias, remote={"kind": "local", "root": str(peer)})
+            self.assertFalse(repeated["registered"])
+            self.assertEqual(repeated["project_id"], first["project_id"])
+            with mock.patch.object(registry.subprocess, "run", side_effect=AssertionError("no Git hot path")):
+                self.assertEqual(registry.find_config(alias), path)
+        self.assertEqual(path.read_bytes(), saved)
+        self.assertEqual(index_path.read_bytes(), index)
+        self.assertEqual(len(registry.list_projects()), 1)
+
+    @unittest.skipUnless(os.name == "nt", "Windows 8.3 path aliases")
+    def test_windows_short_path_migration_preserves_original_configuration(self):
+        root = self.repo("migration worktree with a long name")
+        short_root = self.windows_short_path(root)
+        config = {"local_root": str(short_root),
+                  "remote": {"kind": "ssh", "host": "fixture-alias", "root": "/srv/fixture"},
+                  "state_dir": str(self.base / "old-state"), "service": {"auto_sync": False}}
+        source = self.base / "old-short-path-config.json"
+        source.write_text(json.dumps(config, indent=3), encoding="utf-8")
+        original_source = source.read_bytes()
+        first = registry.init_project(root, from_config=source)
+        path = Path(first["config_path"])
+        original_config = path.read_bytes()
+        index_path = registry._registry_root() / "registry.json"
+        original_index = index_path.read_bytes()
+        self.assertEqual(json.loads(original_config), config)
+        repeated = registry.init_project(short_root, from_config=source)
+        self.assertFalse(repeated["registered"])
+        self.assertEqual(repeated["project_id"], first["project_id"])
+        for alias in (root, short_root):
+            self.assertEqual(registry.find_config(alias), path)
+        self.assertEqual(path.read_bytes(), original_config)
+        self.assertEqual(index_path.read_bytes(), original_index)
+        self.assertEqual(source.read_bytes(), original_source)
+
+    @unittest.skipUnless(os.name == "nt", "Windows 8.3 path aliases")
+    def test_windows_short_path_linked_gitdir_is_canonicalized(self):
+        (self.local / "a.txt").write_text("initial", encoding="utf-8")
+        self.git(self.local, "add", "a.txt")
+        self.git(self.local, "commit", "-qm", "initial")
+        linked = self.base / "linked worktree with a long name"
+        self.git(self.local, "worktree", "add", "-q", "-b", "short-linked", str(linked))
+        short_linked = self.windows_short_path(linked)
+        gitdir = Path(self.git(linked, "rev-parse", "--absolute-git-dir")).resolve()
+        short_gitdir = self.windows_short_path(gitdir)
+        marker = linked / ".git"
+        # Git may mark this fixture file hidden on Windows; update its existing
+        # handle rather than reopening with CREATE_ALWAYS and changing attributes.
+        with marker.open("r+", encoding="utf-8", newline="\n") as stream:
+            stream.write("gitdir: " + str(short_gitdir) + "\n")
+            stream.truncate()
+        original_marker = marker.read_bytes()
+        first = registry.init_project(short_linked, remote=self.remote)
+        path = gitdir / "worktree-bridge" / "config.json"
+        self.assertEqual(Path(first["config_path"]), path)
+        saved = path.read_bytes()
+        repeated = registry.init_project(linked)
+        self.assertFalse(repeated["registered"])
+        self.assertEqual(repeated["project_id"], first["project_id"])
+        for alias in (linked, short_linked):
+            self.assertEqual(registry.find_config(alias), path)
+        self.assertEqual(path.read_bytes(), saved)
+        self.assertEqual(marker.read_bytes(), original_marker)
 
     def test_migration_preserves_all_fields_state_and_unnamed_fingerprint(self):
         config = {"local_root": str(self.local), "remote": self.remote,
@@ -346,7 +442,8 @@ class RegistryTests(unittest.TestCase):
         target = self.base / "junction-target"
         target.mkdir()
         command = ['cmd', '/c', 'mklink', '/J', str(folder), str(target)]
-        result = subprocess.run(command, capture_output=True)
+        result = subprocess.run(command, capture_output=True,
+                                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         if result.returncode:
             self.skipTest("Cannot create test junction")
         try:

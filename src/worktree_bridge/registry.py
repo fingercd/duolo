@@ -32,6 +32,8 @@ def _reject_links(path):
 def _metadata(cwd):
     current = _absolute(cwd)
     _reject_links(current)
+    # Expand Windows 8.3 aliases only after checking the original path for links.
+    current = current.resolve()
     if not current.is_dir():
         raise RuntimeError("Project directory does not exist: " + str(current))
     for root in (current, *current.parents):
@@ -42,7 +44,7 @@ def _metadata(cwd):
             continue
         _reject_links(marker)
         if stat.S_ISDIR(info.st_mode):
-            return root, marker
+            return root, marker.resolve()
         if not stat.S_ISREG(info.st_mode):
             raise RuntimeError("Invalid Git metadata marker: " + str(marker))
         try:
@@ -54,6 +56,7 @@ def _metadata(cwd):
         target = Path(text[len("gitdir: "):])
         gitdir = _absolute(target if target.is_absolute() else root / target)
         _reject_links(gitdir)
+        gitdir = gitdir.resolve()
         if not gitdir.is_dir():
             raise RuntimeError("Git gitdir does not exist: " + str(gitdir))
         return root, gitdir
@@ -221,8 +224,13 @@ def _init_project(cwd, remote, name, from_config):
     for option, expected in (("--show-toplevel", root), ("--absolute-git-dir", gitdir)):
         process = subprocess.run(["git", "-C", str(root), "rev-parse", option],
                                  env=git_environment(), capture_output=True, text=True,
-                                 encoding="utf-8", errors="replace", timeout=15)
-        if process.returncode or _absolute(process.stdout.strip()) != expected:
+                                 encoding="utf-8", errors="replace", timeout=15,
+                                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if process.returncode:
+            raise RuntimeError("Git did not confirm this worktree and its private metadata: " + process.stderr.strip())
+        confirmed = _absolute(process.stdout.strip())
+        _reject_links(confirmed)
+        if confirmed.resolve() != expected:
             raise RuntimeError("Git did not confirm this worktree and its private metadata: " + process.stderr.strip())
     if name is not None and (not isinstance(name, str) or not name.strip() or any(ord(char) < 32 for char in name)):
         raise RuntimeError("Project name must be a non-empty string without control characters")
