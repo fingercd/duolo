@@ -1,162 +1,109 @@
 <div align="center">
 
-<img src="docs/assets/brand.svg" alt="Worktree Bridge" width="88" />
+<img src="docs/assets/brand.svg" alt="Duolo" width="88" />
 
-# Worktree Bridge
+# Duolo
 
-**Register once inside your repository to coordinate local and SSH development worktrees.**
+**Write code locally, run it on your server, and sync changes both ways.**
 
-Bidirectional file sync · Protected Git fast-forward · CLI status · Optional MCP
+[中文](README.md) · [Get started](#get-started) · [Agent integration](#use-with-an-agent) · [Documentation](#documentation-and-help)
 
-[中文](README.md) · [Quick start](#quick-start) · [Configuration](docs/configuration.md) · [MCP](docs/mcp.md) · [Validation](docs/validation.md)
-
-![Python 3.10+](https://img.shields.io/badge/controller-Python%203.10%2B-blue)
-![Remote Python 3.9+](https://img.shields.io/badge/remote-Python%203.9%2B-blue)
+![Python 3.10+](https://img.shields.io/badge/local-Python%203.10%2B-blue)
+![Experimental 0.4.0](https://img.shields.io/badge/version-0.4.0%20experimental-orange)
 ![MIT License](https://img.shields.io/badge/license-MIT-green)
 
 </div>
 
-Worktree Bridge is for developers whose coding agent and editor run locally while training, evaluation, or some code changes happen on an SSH host. Run `wtb init` inside an existing Git repository to register one explicit pair of development directories. Once started, the background service synchronizes supported source files and documents; CLI and MCP report differences, conflicts, Git blockers, and connection state.
+Edit code with your local editor or coding agent, then train, evaluate, or debug on a Linux server? **Duolo connects the two project directories and automatically sends saved code and documents to the other side.** Changes made on the server can come back to your computer too, reducing manual uploads and downloads.
 
-**Experimental release 0.3.0.** The core uses the Python standard library, Git, and OpenSSH. MCP is optional. See the [validation record](docs/validation.md) for tests, SSH acceptance, and measurements. Registration does not adopt other copies; code used by an active training run should be frozen separately.
+A few commands show sync results and files that differ. Your coding agent can also check and operate the pair directly.
 
-## What it does
+<!-- PROMO-VIDEO: Embed the project promo video here; the project maintainer will supply the actual media link. -->
 
-| Capability | Behavior |
-|---|---|
-| Repository registration | `init` records the current Git worktree and an explicit peer. Subsequent commands discover the pair without repeating a configuration path. |
-| Bidirectional incremental sync | A common baseline identifies changes on either side. Incremental observation and periodic full reconciliation check actual files. |
-| Explicit differences | `status` reads cached state; `watch` reports changes continuously. Offline peers, stale observations, file conflicts, and Git divergence cannot appear synchronized. |
-| Follow existing commits | Fast-forward a peer only when branch, ancestry, and worktree protection checks pass. Commits may originate on either side. |
-| Explicit checkpoints | Create a local commit for eligible work and an optional tag. Saving a file does not create a commit. |
-| Agent integration | JSON output by default, an installable Skill, and optional MCP, sharing one controller per pair. |
+## Why Duolo
 
-File contents, Git history, and an agent's loaded context are checked separately. Transferred bytes do not prove that Git has followed; an updated `AGENTS.md` on disk does not prove that a running agent reread it.
+- **Edit on either side.** Changes made on one side sync to the other, including source code and project documents.
+- **See conflicts clearly.** Different edits to the same file stop synchronization and are reported, so you can choose which version to keep.
+- **Keep Git commits aligned.** When conditions allow, a commit on one side updates the other to the same commit. Saving a file does not automatically create a commit.
+- **Use it yourself or with an agent.** Check status in your terminal, or use MCP to let a coding agent inspect, sync, and resolve conflicts.
 
-## Quick start
+## Get started
 
-### 1. Install
+Your computer needs **Python 3.10+, Git, and OpenSSH**. The server needs **Python 3.9+ and Git**. Set up SSH key login and trust the target host key first.
 
-The controller requires **Python 3.10+, Git, and an OpenSSH client**. SSH targets require **Python 3.9+ and Git**. Configure key-based login and trust the target host key first.
+**1. Install Duolo** from GitHub. It is not currently published on PyPI:
 
 ```console
-git clone https://github.com/fingercd/worktree-bridge.git
-cd worktree-bridge
-python -m pip install .
-wtb --help
+python -m pip install "duolo @ git+https://github.com/fingercd/duolo.git@v0.4.0"
 ```
 
-Or install a fixed release from GitHub:
-
-```console
-python -m pip install "worktree-bridge @ git+https://github.com/fingercd/worktree-bridge.git@v0.3.0"
-```
-
-`wtb` and `worktree-bridge` are aliases for the same CLI. Installation is currently from source or GitHub.
-
-### 2. Register inside an existing repository
+**2. Open your existing project and tell Duolo where its server copy lives:**
 
 ```console
 cd D:/work/my-project
-wtb init --remote gpu-dev --path /home/researcher/projects/my-project
+duo init --remote gpu-dev --path /home/researcher/projects/my-project
 ```
 
-`gpu-dev` may be an existing SSH config alias. Omitting `--port` preserves its configured port. Add `--name my-project` to set the pair's display name.
+Replace `gpu-dev` with your SSH hostname or config alias, and use your own project paths. `init` only remembers the two directories; synchronization starts when you launch the service.
 
-**`init` only registers the pair.** It does not run `git init`, commit, overwrite project files, or synchronize immediately. Pairing information is stored in private local metadata. The current directory must belong to an existing Git repository. Subsequent commands discover the pair from that repository or a subdirectory.
+**Before first use, both copies must have the same Git commit, the same branch, and matching files to synchronize.** If they already contain different changes, preserve and reconcile both sides using the [onboarding guide](docs/onboarding.md).
 
-The initial common baseline requires matching HEAD, named branch, and supported file bytes. Preserve and reconcile existing differences using the [onboarding guide](docs/onboarding.md) before enabling automatic sync. An existing JSON configuration can be registered with:
+**3. Start and check the result:**
 
 ```console
-wtb init --from-config D:/work/bridge-config/project.json
+duo start
+duo status --short
 ```
 
-### 3. Start and inspect
+Keep editing. Duolo syncs in the background, without an extra console window on Windows. Run subsequent `duo` commands inside this project or its subdirectories; no need to repeat the server path.
 
-```console
-wtb start
-wtb status --short
-wtb watch --interval 0.5
-```
+## Everyday commands
 
-`start` launches the local controller in the background without an extra console window on Windows. The remote peer runs over the existing SSH connection, with no public-facing service installation. `status` returns JSON by default; `--short` provides concise text. `watch` continuously reports state changes; Ctrl+C ends observation.
-
-This is a command-flow illustration, not a recorded terminal session:
-
-```text
-Existing Git repository
-  └─ wtb init     Register one directory pair
-       └─ wtb start    Enable background observation and sync
-            ├─ wtb status    Inspect state and differences
-            ├─ wtb watch     Observe changes continuously
-            └─ wtb wait      Verify actual state after a save
-```
-
-Default `status` fails with a start instruction when the service is stopped. It does not silently switch to a slow remote full scan. Use `wtb status --fresh` for an explicit independent full check.
-
-## Daily commands
-
-Run these inside the registered repository. `--config PATH` remains available as an advanced override.
-
-| Command | Purpose |
+| Command | What it does |
 |---|---|
-| `projects` | List locally registered projects. |
-| `start` / `stop` | Start / stop the current pair's background service. |
-| `serve` | Run in the foreground for logs or your own process manager. |
-| `status` / `status --short` | Read cached JSON / concise text status. |
-| `watch --interval 0.5` | Observe text status changes continuously. |
-| `sync` / `sync --wait` | Request immediate reconciliation and sync; optionally wait for its result. |
-| `pause` / `resume` | Pause / resume automatic sync. An in-flight action may complete. |
-| `conflicts` | Read conflicts and the current `revision`. |
-| `wait --timeout 30` | Request a read-only observation and wait for confirmed agreement. No transfer or pause override. |
-| `checkpoint -m "experiment setup" --tag exp-001` | After both sides match, create a local commit for eligible work and an optional tag, then let the peer follow. |
-| `mcp` | Run the optional MCP stdio adapter. Install the extra and start the service first. |
+| `duo status --short` | Show current state and files that differ. |
+| `duo watch` | Show state changes continuously; Ctrl+C ends observation. |
+| `duo sync --wait` | Sync now and wait for confirmation. |
+| `duo pause` / `duo resume` | Pause / resume automatic sync. |
+| `duo checkpoint -m "experiment setup" --tag exp-001` | Explicitly save a Git commit and an optional tag. |
+| `duo stop` | Stop this project's background synchronization. |
 
-A write response containing `queued: true` only acknowledges acceptance. Check the result with subsequent status or a wait. `wait` requires its own new observation to complete; an old green cache cannot satisfy it. With automatic sync disabled or paused, pending differences must first be handled through an allowed action.
+`duo status` returns JSON by default for scripts and agents; `--short` is for people. Status comes from the service's latest check and reports disconnections or outdated observations. Use `duo --help` for more options, or see [configuration and states](docs/configuration.md).
 
-To resolve a conflict, review both versions and pass the freshly returned `revision` with your choice:
+## Use with an agent
 
-```console
-wtb conflicts
-wtb resolve src/model.py --take local --revision TOKEN
-wtb wait --timeout 30
-```
+The optional MCP interface lets a coding agent **check whether both copies match, request synchronization, resolve conflicts, or save a commit**.
 
-`--take local` replaces remote contents with the local version; `--take remote` does the reverse. A stale revision is rejected. The tool does not select a winner by modification time or automatically merge files.
-
-Automatic Git following handles existing commits. It does not copy `.git`, automatically merge, rebase, stash, force-push, or push your project to GitHub. New history is audited before transfer, including files removed before its final tree. Automatic review is limited to **128 commits, 4096 per-commit path entries, and an 8 MiB Git bundle**, with path exclusions, size, and mode checks. Exceeding these bounds blocks transfer; use a reviewed native Git workflow.
-
-`checkpoint` creates a commit through guarded native Git plumbing and **does not run `git commit` hooks**. Run required pre-commit or other checks first, or commit through the project's normal workflow and let the service follow. Tag important experiments and separately record configuration, seed, data, and weight versions.
-
-## How it works and its limits
-
-```mermaid
-flowchart LR
-    U[Repository CLI / Agent] --> C[Local pair controller]
-    M[Optional MCP] --> C
-    C --> B[Private registration / baseline / journal / backups]
-    C <-->|Content and Git checks| L[Local development worktree]
-    C <-->|Persistent SSH connection| R[Remote development worktree]
-    R -.separate version freeze.-> F[Training / evaluation snapshot]
-```
-
-Each registration has one pair and one controller. File events are hints; content and Git are checked before writes. Connection failure produces an offline state; reconnection reads actual state again. Writes with unknown outcomes are not blindly replayed. `synced` requires a current valid observation, and a stale observation becomes `checking`. Inspect connection, observation time, and errors together.
-
-- **Selection is limited.** Git-tracked files and nonignored untracked regular small files are eligible, with a 1 MiB per-file limit. Built-in rules exclude Git metadata, common secrets, data and output directories, model weights, links, and nested repositories. Supported tracked source under `data/` and `datasets/` remains eligible. Name filters do not replace `.gitignore` or secret review.
-- **Bytes are preserved.** There is no implicit CRLF/LF conversion, Unix executable-bit, owner, ACL, or Git index synchronization. Review `.gitattributes` before onboarding a Windows/Linux pair.
-- **Deletion is off by default.** `allow_delete` defaults to `false`; enabling it still requires baseline, conflict, and write preflight checks.
-- **There is no cross-host transaction.** File replacement is atomic per file, but a batch may partially complete. Recover using journals, backups, and actual state. The service cannot lock arbitrary editors or training processes and does not promise zero loss under arbitrary concurrent editing.
-- **Directory roles are explicit.** Branch copies, old roots, and training snapshots sharing an origin are not automatically paired. Active training uses a frozen snapshot; sync applies only to registered development roots.
-
-## Agents, configuration, and development
-
-Install [`skills/worktree-bridge`](skills/worktree-bridge/SKILL.md) into your agent's skills directory and make the CLI available. The Skill handles document rereading, blockers, and handoff; installation does not grant commit, push, training, or publishing permission. MCP shares the CLI controller; see the [MCP guide](docs/mcp.md).
-
-Existing JSON configuration and `baseline`, `plan`, and `apply` remain compatible. Keep plan files outside the worktrees. An active service blocks legacy `apply` writes. `baseline --refresh` cannot bypass differences. See [configuration](docs/configuration.md), [onboarding](docs/onboarding.md), [design](docs/design.md), [validation](docs/validation.md), [SSH acceptance](docs/ssh-acceptance.md), and [related-tool research](docs/research.md). Detailed reference pages are currently in Chinese.
+Install MCP support, then run the adapter inside your connected project:
 
 ```console
+python -m pip install "duolo[mcp] @ git+https://github.com/fingercd/duolo.git@v0.4.0"
+duo mcp
+```
+
+Follow the [MCP guide](docs/mcp.md) to connect your agent client. You can also install the [project Skill](skills/duolo/SKILL.md), which helps an agent reread changed project rules after synchronization.
+
+## Scope
+
+**Experimental release 0.4.0.** Local tests, official MCP SDK tests, and real Windows ↔ Linux SSH acceptance are complete. See the [validation record](docs/validation.md) for results.
+
+- Sync covers source code and project documents. Training data, model weights, and common outputs are excluded. Deletion is off by default; see [configuration](docs/configuration.md) and [design](docs/design.md) for the full scope.
+- Divergent Git history, file conflicts, and network problems are reported. Duolo does not automatically merge conflicts or push your project to GitHub, and does not guarantee zero loss under arbitrary simultaneous editing.
+- Active training should use a fixed code copy. Sync connects only the two development directories you select; it does not adopt other projects or running snapshots.
+
+## Documentation and help
+
+[Onboarding](docs/onboarding.md) · [Configuration and states](docs/configuration.md) · [MCP](docs/mcp.md) · [Implementation and limits](docs/design.md) · [Validation](docs/validation.md)
+
+Detailed reference pages are currently in Chinese. Report bugs or suggestions in [Issues](https://github.com/fingercd/duolo/issues), with reproduction steps. Remove real hosts, private paths, and secret contents from logs before sharing.
+
+To develop from source:
+
+```console
+git clone https://github.com/fingercd/duolo.git
+cd duolo
 python -m pip install -e .
 python -m unittest discover -s tests -v
 ```
 
-Default tests use isolated temporary worktrees; SSH acceptance uses dedicated copies. Remove real hosts, private paths, and secret contents from issue reports. Licensed under [MIT](LICENSE).
+Licensed under [MIT](LICENSE).

@@ -16,13 +16,13 @@ import zlib
 BOOTSTRAP = r'''
 import base64,json,sys,types,zlib
 bundle=json.loads(zlib.decompress(base64.b64decode(sys.stdin.buffer.readline())))
-package=types.ModuleType("worktree_bridge")
+package=types.ModuleType("duolo")
 package.__path__=[]
-sys.modules["worktree_bridge"]=package
+sys.modules["duolo"]=package
 for name,source in bundle["modules"]:
-    full="worktree_bridge."+name
+    full="duolo."+name
     module=types.ModuleType(full)
-    module.__package__="worktree_bridge"
+    module.__package__="duolo"
     module.__file__="<bundled:"+name+">"
     sys.modules[full]=module
     setattr(package,name,module)

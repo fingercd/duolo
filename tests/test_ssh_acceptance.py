@@ -162,7 +162,7 @@ class FixtureGuards(unittest.TestCase):
 
     def git(self, *args):
         return subprocess.run(["git", "-C", str(self.root), *args], check=True,
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.decode().strip()
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout.decode().strip()
 
     def write_request(self, path="AGENTS.md"):
         return {**self.request, "initial": False, "op": "write", "path": path,

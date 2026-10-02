@@ -9,8 +9,8 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from worktree_bridge import agent
-from worktree_bridge.runtime_agent import Runtime
+from duolo import agent
+from duolo.runtime_agent import Runtime
 
 
 class RuntimeTests(unittest.TestCase):
@@ -30,7 +30,7 @@ class RuntimeTests(unittest.TestCase):
 
     def git(self, *args):
         return subprocess.run(["git", "-C", str(self.root), *args], check=True,
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout
 
     def expected(self):
         snap = self.runtime.snapshot()
@@ -185,7 +185,7 @@ class RuntimeTests(unittest.TestCase):
             self.assertNotIn("linked.py", self.runtime.snapshot()["files"])
         nested = self.root / "nested"
         nested.mkdir()
-        subprocess.run(["git", "-C", str(nested), "init"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(nested), "init"], check=True, capture_output=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         with self.assertRaisesRegex(ValueError, "nested git"):
             self.runtime.write_many([{"path": "nested/new.py", "data": "YQ==", "expected": None}], expected)
 

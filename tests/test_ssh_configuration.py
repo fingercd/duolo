@@ -7,7 +7,7 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from worktree_bridge.__main__ import Endpoint, endpoint_identity
+from duolo.__main__ import Endpoint, endpoint_identity
 
 
 def resolved(port=2222):

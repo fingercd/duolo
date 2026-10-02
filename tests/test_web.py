@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from worktree_bridge.web import BridgeHTTPServer
+from duolo.web import BridgeHTTPServer
 
 
 class StubService:

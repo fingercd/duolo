@@ -1,12 +1,12 @@
-# 注册、配置与状态
+# Duolo 注册、配置与状态
 
 推荐从当前 Git 仓库注册：
 
 ```console
 cd D:/work/my-project
-wtb init --remote gpu-dev --path /home/researcher/projects/my-project --name my-project
-wtb start
-wtb status --short
+duo init --remote gpu-dev --path /home/researcher/projects/my-project --name my-project
+duo start
+duo status --short
 ```
 
 `init` 只记录一对目录，不创建 Git 仓库、不提交、不覆盖文件、不立即同步。注册只需已有 Git 工作树；启动同步并建立共同基线时，两端须有初始 commit、相同的具名分支和一致的所选内容。后续命令从当前 Git 工作树发现私有配对元数据，仓库子目录也可使用；`projects` 列出已注册项目。Git worktree 的不同开发副本不能因为共享 origin 就自动视为同一配对。
@@ -17,12 +17,14 @@ wtb status --short
 
 本机项目索引位于 Windows 的 `%LOCALAPPDATA%/WorktreeBridge`，或 Linux/macOS 的 `$XDG_STATE_HOME/worktree-bridge`（未设置时为 `~/.local/state/worktree-bridge`）。新注册的状态默认放在该目录的 `projects/<project_id>/state`，无需手工选择路径；迁移保留原配置中的 `state_dir`。
 
+Duolo 0.4 保留这些更名前的存储名称，使已有配对继续发现同一份配置、基线和记录；它们不是当前产品名。不要为了改名搬动目录、修改基线或把路径全局替换为 `duolo`。本机服务的 `X-WTB-*` 请求头也继续使用既有协议，由 CLI/MCP 自动处理。
+
 ## JSON 配置与迁移
 
 已有配对可迁移注册：
 
 ```console
-wtb init --from-config D:/work/bridge-config/project.json
+duo init --from-config D:/work/bridge-config/project.json
 ```
 
 高级用法仍可在命令前指定 `--config PATH`，覆盖当前仓库发现的配置。配置结构：

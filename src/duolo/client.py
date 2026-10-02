@@ -49,7 +49,7 @@ def service_info(config_path, *, allow_changed_config=False):
     try:
         info = json.loads((state / "service.json").read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        raise ServiceUnavailable("Service is not running; use 'start' first") from exc
+        raise ServiceUnavailable("Service is not running; use 'duo start' first") from exc
     try:
         url = parse.urlsplit(info["url"])
         valid = (url.scheme == "http" and url.hostname == "127.0.0.1"

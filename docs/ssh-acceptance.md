@@ -1,6 +1,8 @@
-# 隔离 SSH 验收
+# Duolo 的隔离 SSH 验收
 
 `scripts/ssh_acceptance.py` 是明确启用的写入测试，不包含在默认联网测试中。它只接受带专用标记的隔离 Git 工作树，不负责创建、删除或反复重试测试环境。不要把研究项目、发布目录或运行中的训练目录用作 fixture。
+
+本页说明沿用 0.2 显式计划验收脚本的隔离协议。Duolo 0.4 保留 `wtb-acceptance` 分支、目录前缀和 `.wtb-acceptance.json` 标记，以继续识别旧 fixture；它们不是当前主命令 `duo`。0.3 后台持久 SSH 的历史验收与测量见[验证记录](validation.md)，不能把本脚本的历史结果当成新版本复测。
 
 ## 准备测试副本
 

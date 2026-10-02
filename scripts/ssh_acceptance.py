@@ -23,7 +23,7 @@ import sys
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SOURCE_ROOT / "src"))
-from worktree_bridge import __main__ as bridge
+from duolo import __main__ as bridge
 
 DOCUMENTS = ("AGENTS.md", "CONTEXT.md")
 MARKER = ".wtb-acceptance.json"
@@ -51,7 +51,7 @@ def fixture_operation(request):
         proc = subprocess.run(["git", "-C", str(root), *args], check=True,
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                               env={key: value for key, value in os.environ.items()
-                                   if not key.upper().startswith("GIT_")}, timeout=30)
+                                   if not key.upper().startswith("GIT_")}, timeout=30, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         return proc.stdout.decode("utf-8").strip()
 
     if Path(git("rev-parse", "--show-toplevel")).resolve() != root:
@@ -190,7 +190,7 @@ class Acceptance:
         proc = subprocess.run(
             command,
             input=json.dumps(request).encode("utf-8"), stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, timeout=45, check=False)
+            stderr=subprocess.PIPE, timeout=45, check=False, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         if proc.returncode:
             raise RuntimeError("acceptance SSH failed (write outcome may be unknown): "
                                + proc.stderr.decode("utf-8", "replace") + " "

@@ -10,8 +10,8 @@ from unittest import mock
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 sys.path.insert(0, str(SRC))
-from worktree_bridge import agent
-from worktree_bridge import __main__ as bridge
+from duolo import agent
+from duolo import __main__ as bridge
 
 
 class BridgeTests(unittest.TestCase):
@@ -38,16 +38,16 @@ class BridgeTests(unittest.TestCase):
 
     def git(self, directory, *args):
         subprocess.run(["git", "-C", str(directory), *args], check=True,
-                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
 
     def cli(self, *args):
         if args and args[0] == "status":
             args = ("status", "--fresh", *args[1:])
         env = dict(os.environ)
         env["PYTHONPATH"] = str(SRC)
-        proc = subprocess.run([sys.executable, "-m", "worktree_bridge", "--config", str(self.config), *args],
+        proc = subprocess.run([sys.executable, "-m", "duolo", "--config", str(self.config), *args],
                               text=True, encoding="utf-8", stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE, env=env)
+                              stderr=subprocess.PIPE, env=env, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         self.assertFalse(proc.stderr, proc.stderr)
         return proc.returncode, json.loads(proc.stdout)
 

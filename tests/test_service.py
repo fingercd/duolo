@@ -12,7 +12,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from worktree_bridge.service import BridgeService, ControllerLock
+from duolo.service import BridgeService, ControllerLock
 
 
 def digest(value):
@@ -473,7 +473,7 @@ class ServiceTests(unittest.TestCase):
             with self.subTest(peer_time=peer_time):
                 service = self.service()
                 self.store["snapshot_git"] = {"remote": {"observed_at": peer_time}}
-                with mock.patch("worktree_bridge.service.time.time", return_value=1000):
+                with mock.patch("duolo.service.time.time", return_value=1000):
                     service._cycle()
                     view = service.view()
                 self.assertEqual(view["state"], "synced")
@@ -488,7 +488,7 @@ class ServiceTests(unittest.TestCase):
         clock = [1000]
         self.store["concurrent_gate"] = threading.Barrier(2)
         self.store["on_observation"] = lambda: clock.__setitem__(0, 1012)
-        with mock.patch("worktree_bridge.service.time.time", side_effect=lambda: clock[0]):
+        with mock.patch("duolo.service.time.time", side_effect=lambda: clock[0]):
             service._cycle()
             view = service.view()
         self.assertEqual(view["state"], "checking")
@@ -499,12 +499,12 @@ class ServiceTests(unittest.TestCase):
 
     def test_untimed_git_snapshots_preserve_previous_observation_time(self):
         service = self.service()
-        with mock.patch("worktree_bridge.service.time.time", return_value=1000):
+        with mock.patch("duolo.service.time.time", return_value=1000):
             service._cycle()
         for snapshot in service._snapshots.values():
             snapshot.pop("controller_observed_at")
             snapshot["observed_at"] = 100000
-        with mock.patch("worktree_bridge.service.time.time", return_value=1012):
+        with mock.patch("duolo.service.time.time", return_value=1012):
             service._cycle_after_write()
             view = service.view()
         self.assertEqual(view["observed_at"], 1000)
@@ -543,7 +543,7 @@ class NativeServiceTests(unittest.TestCase):
         self.addCleanup(self.cleanup_services)
 
     def git(self, directory, *args):
-        subprocess.run(["git", "-C", str(directory), *args], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(["git", "-C", str(directory), *args], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
 
     def cleanup_services(self):
         for service in self.services:
@@ -562,7 +562,7 @@ class NativeServiceTests(unittest.TestCase):
         self.fail("State did not become " + state + ": " + str(service.view()))
 
     def test_existing_baseline_identity_and_native_sync(self):
-        from worktree_bridge.__main__ import configuration, endpoint_identity, make_baseline, snapshots, save_json
+        from duolo.__main__ import configuration, endpoint_identity, make_baseline, snapshots, save_json
         local, remote, state = configuration(self.config)
         old = make_baseline(snapshots(local, remote), endpoint_identity(local, remote))
         save_json(state / "baseline.json", old)

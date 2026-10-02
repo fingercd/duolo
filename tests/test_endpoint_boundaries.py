@@ -12,7 +12,7 @@ from unittest import mock
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 sys.path.insert(0, str(SRC))
-from worktree_bridge import agent
+from duolo import agent
 
 
 class EndpointBoundaryTests(unittest.TestCase):

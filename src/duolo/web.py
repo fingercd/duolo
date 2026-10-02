@@ -27,7 +27,7 @@ class BridgeHTTPServer(ThreadingHTTPServer):
 
 
 class BridgeHandler(BaseHTTPRequestHandler):
-    server_version = "WorktreeBridge/0.3"
+    server_version = "Duolo/0.4"
 
     def log_message(self, format, *args):
         pass
@@ -64,7 +64,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
         if path == "/api/status":
             self._json(200, self.server.service.view())
             return
-        self._error(404, "not_found", "This is a private control API; use wtb status or wtb watch")
+        self._error(404, "not_found", "This is a private control API; use duo status or duo watch")
 
     def do_POST(self):
         if not self._local_request():

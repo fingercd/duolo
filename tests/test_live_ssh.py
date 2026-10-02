@@ -16,9 +16,9 @@ import time
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from worktree_bridge.__main__ import Endpoint
-from worktree_bridge.service import BridgeService
-from worktree_bridge.transport import Peer, PeerError
+from duolo.__main__ import Endpoint
+from duolo.service import BridgeService
+from duolo.transport import Peer, PeerError
 
 
 def digest(data):
@@ -69,7 +69,7 @@ class LiveSSHTests(unittest.TestCase):
     @staticmethod
     def git(root, *args):
         return subprocess.run(["git", "-C", str(root), *args], check=True,
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20).stdout
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout
 
     def peer(self, spec):
         peer = Peer(spec, timeout=20, reconcile_interval=300)

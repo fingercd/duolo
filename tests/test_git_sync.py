@@ -8,8 +8,8 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from worktree_bridge import agent, git_ops
-from worktree_bridge.git_sync import GitCoordinator
+from duolo import agent, git_ops
+from duolo.git_sync import GitCoordinator
 
 
 class LocalPeer:
@@ -45,7 +45,7 @@ class GitSyncTests(unittest.TestCase):
 
     def git(self, root, *args, check=True):
         result = subprocess.run(["git", "-C", str(root), *args], stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE, env=agent.git_environment())
+                                stderr=subprocess.PIPE, env=agent.git_environment(), creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         if check and result.returncode:
             self.fail(result.stderr.decode("utf-8", "replace"))
         return result

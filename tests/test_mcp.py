@@ -15,7 +15,7 @@ from unittest import mock
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 sys.path.insert(0, str(SRC))
-from worktree_bridge import mcp_server
+from duolo import mcp_server
 
 
 class ClientError(RuntimeError):
@@ -113,9 +113,9 @@ class BoundProjectTests(unittest.TestCase):
     def test_import_does_not_load_sdk(self):
         env = dict(os.environ, PYTHONPATH=str(SRC))
         result = subprocess.run(
-            [sys.executable, "-c", "import sys; import worktree_bridge.mcp_server; assert 'mcp' not in sys.modules"],
+            [sys.executable, "-c", "import sys; import duolo.mcp_server; assert 'mcp' not in sys.modules"],
             env=env, capture_output=True, text=True, encoding="utf-8", timeout=15,
-        )
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "")
 
@@ -123,7 +123,7 @@ class BoundProjectTests(unittest.TestCase):
 # This SDK client launches a real stdio server subprocess. The daemon client is
 # a fixture: no real SSH endpoint, filesystem synchronization, or Git write occurs.
 @unittest.skipUnless(importlib.util.find_spec("mcp"),
-                     'official MCP SDK not installed; install worktree-bridge[mcp] to test real stdio')
+                     'official MCP SDK not installed; install .[mcp] to test real stdio')
 class MCPStdioTests(unittest.TestCase):
     def test_official_client_handshake_tools_and_guarded_calls(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -131,8 +131,8 @@ class MCPStdioTests(unittest.TestCase):
             script.write_text(textwrap.dedent('''
                 import sys
                 import types
-                import worktree_bridge
-                from worktree_bridge.mcp_server import run
+                import duolo
+                from duolo.mcp_server import run
 
                 class ClientError(RuntimeError): pass
                 class ServiceUnavailable(ClientError): pass
@@ -159,12 +159,12 @@ class MCPStdioTests(unittest.TestCase):
                     if state["state"] != "synced":
                         raise WaitTimeout(dict(state))
                     return dict(state)
-                client = types.ModuleType("worktree_bridge.client")
+                client = types.ModuleType("duolo.client")
                 for name in ("ClientError", "ServiceUnavailable", "WaitTimeout",
                              "get_status", "action", "wait_until_synced"):
                     setattr(client, name, globals()[name])
                 sys.modules[client.__name__] = client
-                worktree_bridge.client = client
+                duolo.client = client
                 run(sys.argv[1])
             '''), encoding="utf-8")
             asyncio.run(self._exercise_stdio(script, Path(directory) / "bound-config.json"))
@@ -181,7 +181,7 @@ class MCPStdioTests(unittest.TestCase):
             async with ClientSession(read, write) as session:
                 initialized = await session.initialize()
                 self.assertTrue(initialized.protocolVersion)
-                self.assertEqual(initialized.serverInfo.name, "Worktree Bridge")
+                self.assertEqual(initialized.serverInfo.name, "Duolo")
                 listed = await session.list_tools()
                 tools = {tool.name: tool for tool in listed.tools}
                 self.assertEqual(set(tools), {

@@ -1,4 +1,4 @@
-# 可选 MCP 接入
+# Duolo 的可选 MCP 接入
 
 MCP 适配器让 Agent 用固定工具查询和操作已注册项目。它复用 CLI 的配对控制器，不自动启动服务；普通 CLI 与后台同步无需安装 MCP SDK。
 
@@ -13,30 +13,30 @@ python -m pip install ".[mcp]"
 也可从 GitHub 安装固定版本：
 
 ```console
-python -m pip install "worktree-bridge[mcp] @ git+https://github.com/fingercd/worktree-bridge.git@v0.3.0"
+python -m pip install "duolo[mcp] @ git+https://github.com/fingercd/duolo.git@v0.4.0"
 ```
 
 进入已注册仓库，先启动服务，再运行 stdio 适配器：
 
 ```console
 cd D:/work/my-project
-wtb start
-wtb mcp
+duo start
+duo mcp
 ```
 
 stdio 的标准输出用于协议，不是普通交互界面。适配器固定绑定启动时发现的项目；不会在每次工具调用时切换到其他目录。
 
 ## 客户端示例
 
-客户端若支持为 MCP 进程指定工作目录，可在已注册仓库中启动 `wtb mcp`。下方使用显式配置兼容方式，适用于不能稳定设置工作目录的客户端；`command` 填安装了本工具与 extra 的 Python 解释器绝对路径。
+客户端若支持为 MCP 进程指定工作目录，可在已注册仓库中启动 `duo mcp`。下方使用显式配置兼容方式，适用于不能稳定设置工作目录的客户端；`command` 填安装了本工具与 extra 的 Python 解释器绝对路径。
 
 ```json
 {
   "mcpServers": {
-    "worktree-bridge": {
-      "command": "D:/work/bridge-env/Scripts/python.exe",
+    "duolo": {
+      "command": "D:/work/duolo-env/Scripts/python.exe",
       "args": [
-        "-m", "worktree_bridge",
+        "-m", "duolo",
         "--config", "D:/work/bridge-config/project.json",
         "mcp"
       ]
@@ -47,7 +47,9 @@ stdio 的标准输出用于协议，不是普通交互界面。适配器固定�
 
 字段和配置位置以客户端为准。多个项目使用各自明确命名的 MCP 条目；真实路径与地址留在私有配置中。
 
-新注册项目无需另造一份 JSON 配置：把示例中的 `--config` 路径替换为 `wtb init` 返回的 `config_path` 即可。普通仓库通常位于 `D:/work/my-project/.git/worktree-bridge/config.json`；linked worktree 以返回值为准。
+新注册项目无需另造一份 JSON 配置：把示例中的 `--config` 路径替换为 `duo init` 返回的 `config_path` 即可。普通仓库通常位于 `D:/work/my-project/.git/worktree-bridge/config.json`；linked worktree 以返回值为准。
+
+`worktree-bridge` 是旧配对的兼容存储名称，0.4 不迁移它；MCP 的显示条目名、主命令和 Python 模块已使用 Duolo / `duo` / `duolo`。本机控制协议保留 `X-WTB-*` 请求头，不需要在客户端另设一套协议。
 
 ## 工具与完成语义
 

@@ -15,7 +15,7 @@ import unittest
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 sys.path.insert(0, str(SRC))
-from worktree_bridge import client
+from duolo import client
 
 
 def process_table():
@@ -189,7 +189,7 @@ class WindowsBackgroundTests(unittest.TestCase):
             environment = dict(os.environ, PYTHONPATH=str(SRC), PYTHONUTF8="1",
                                LOCALAPPDATA=str(root / "registration-home"),
                                XDG_STATE_HOME=str(root / "registration-home"))
-            starter = subprocess.Popen([str(python), "-m", "worktree_bridge", "--config", str(config), "start"],
+            starter = subprocess.Popen([str(python), "-m", "duolo", "--config", str(config), "start"],
                                        stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                        env=environment, creationflags=subprocess.CREATE_NO_WINDOW)
             monitor = ProcessMonitor(starter.pid)
